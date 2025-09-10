@@ -1,0 +1,38 @@
+# NVIDIA GRID vGPU Daemon Configuration Template for LudOS
+# This configuration ONLY works with NVIDIA GRID vGPU drivers
+# Tesla datacenter drivers do NOT support GRID licensing
+# Copy this file to /etc/nvidia/gridd.conf and customize for your environment
+
+# Feature Type Configuration (GRID vGPU drivers only)
+# 0 = NVIDIA Virtual Applications
+# 1 = NVIDIA vGPU (auto-detect) - recommended for mdev profiles
+# 2 = NVIDIA RTX Virtual Workstation (for workstation workloads)
+# 4 = NVIDIA Virtual Compute Server (for compute workloads)
+FeatureType=1
+
+# License Server Configuration
+# Replace with your actual license server details
+ServerAddress=your-license-server.domain.com
+ServerPort=7070
+
+# Client Configuration Token Path (optional)
+# ClientConfigTokenPath=/etc/nvidia/ClientConfigToken/
+
+# Backup License Servers (optional)
+# BackupServerAddress1=backup1.domain.com
+# BackupServerAddress2=backup2.domain.com
+
+# Proxy Configuration (if needed)
+# ProxyServerAddress=proxy.domain.com
+# ProxyServerPort=3128
+# ProxyUserName=username
+# ProxyCredentialsFilePath=/etc/nvidia/proxy-credentials.dat
+
+# Logging Configuration
+LogLevel=3
+LogFileMaxSize=10
+LogFileMaxBackups=5
+
+# License Checkout Settings
+LicenseCheckoutTimeout=30
+LicenseRetryInterval=60

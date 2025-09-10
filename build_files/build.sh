@@ -2,23 +2,95 @@
 
 set -ouex pipefail
 
-### Install packages
+### LudOS - Headless Gaming VM Build Script
+### Installs NVIDIA datacenter drivers, Gamescope, Sunshine, and gaming components
 
-# Packages can be installed from any enabled yum repo on the image.
-# RPMfusion repos are available by default in ublue main images
-# List of rpmfusion packages can be found here:
-# https://mirrors.rpmfusion.org/mirrorlist?path=free/fedora/updates/39/x86_64/repoview/index.html&protocol=https&redirect=1
+echo "Starting LudOS build process..."
 
-# this installs a package from fedora repos
-dnf5 install -y tmux 
+### System packages and dependencies
+echo "Installing base system packages..."
+dnf5 install -y \
+    tmux \
+    htop \
+    curl \
+    wget \
+    git \
+    kernel-devel \
+    kernel-headers \
+    dkms \
+    gcc \
+    make
 
-# Use a COPR Example:
+### NVIDIA Driver Installation Strategy
+echo "Setting up NVIDIA driver installation..."
+
+# Note: NVIDIA GRID vGPU drivers must be manually installed
+# They are not available in public repositories due to licensing restrictions
+# 
+# For Tesla P4 and other datacenter GPUs, you have two options:
+# 1. GRID vGPU drivers (for virtualized GPU with licensing) - RECOMMENDED
+# 2. Tesla datacenter drivers (for bare metal, no GRID licensing)
 #
-# dnf5 -y copr enable ublue-os/staging
-# dnf5 -y install package
-# Disable COPRs so they don't end up enabled on the final image:
-# dnf5 -y copr disable ublue-os/staging
+# This script prepares the system but requires manual driver installation
+# See /etc/ludos/nvidia-driver-install.sh for installation instructions
 
-#### Example for enabling a System Unit File
+# Install driver dependencies
+echo "Installing NVIDIA driver dependencies..."
+dnf5 install -y \
+    kernel-devel-$(uname -r) \
+    kernel-headers-$(uname -r) \
+    gcc \
+    make \
+    dkms \
+    acpid \
+    libglvnd-glx \
+    libglvnd-opengl \
+    libglvnd-devel
 
+# Create directory for manual driver installation
+mkdir -p /opt/nvidia-drivers
+
+### Install gaming and streaming components
+echo "Installing gaming components..."
+dnf5 install -y \
+    gamescope \
+    steam \
+    pipewire \
+    pipewire-alsa \
+    pipewire-pulseaudio \
+    wireplumber
+
+### Install Sunshine streaming server
+echo "Installing Sunshine streaming server..."
+# Add Sunshine repository (LizardByte)
+wget -O /tmp/sunshine.rpm https://github.com/LizardByte/Sunshine/releases/latest/download/sunshine-fedora-42.rpm
+dnf5 install -y /tmp/sunshine.rpm
+rm -f /tmp/sunshine.rpm
+
+### Create NVIDIA GRID licensing configuration directory
+echo "Setting up NVIDIA GRID licensing..."
+mkdir -p /etc/nvidia
+
+### Configure kernel parameters for NVIDIA and Gamescope
+echo "Configuring kernel parameters..."
+echo "nvidia_drm.modeset=1" >> /etc/kernel/cmdline
+
+### Set up Sunshine capabilities for KMS capture
+echo "Configuring Sunshine capabilities..."
+setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
+
+### Enable required services
+echo "Enabling system services..."
 systemctl enable podman.socket
+systemctl enable sunshine.service
+systemctl enable nvidia-gridd.service || echo "Warning: nvidia-gridd service not found (will be available after driver installation)"
+
+### Create LudOS configuration directory and copy setup files
+mkdir -p /etc/ludos
+cp /ctx/nvidia-gridd.conf.template /etc/ludos/
+cp /ctx/ludos-setup.sh /etc/ludos/
+cp /ctx/nvidia-driver-install.sh /etc/ludos/
+chmod +x /etc/ludos/ludos-setup.sh
+chmod +x /etc/ludos/nvidia-driver-install.sh
+
+echo "LudOS build process completed successfully!"

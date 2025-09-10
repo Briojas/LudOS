@@ -1,8 +1,8 @@
-# This file is completely optional, but if you want to index your image on https://artifacthub.io/ you can 
-# Sign up and add the Repository ID to the right field. Owners fields are optional.
-# Examples: https://artifacthub.io/packages/search?ts_query_web=ublue&sort=relevance&page=1 
+# LudOS - Headless Gaming VM Image
+# This file is optional, but allows indexing on https://artifacthub.io/
+# Sign up and add your Repository ID to claim ownership
 
-repositoryID: my-custom-id-here # Fill in with your own credentials 
-owners: # (optional, used to claim repository ownership)
-  - name: My Name
-    email: my_email@email.com
+repositoryID: ludos-headless-gaming-vm # Update with your artifacthub credentials if desired
+owners: # (optional, used to claim repository ownership)
+  - name: LudOS Team
+    email: your_email@domain.com # Update with your email
