@@ -69,10 +69,9 @@ dnf5 install -y \
 
 ### Install Sunshine streaming server
 echo "Installing Sunshine streaming server..."
-# Add Sunshine repository (LizardByte)
-wget -O /tmp/sunshine.rpm https://github.com/LizardByte/Sunshine/releases/latest/download/sunshine-fedora-42.rpm
-dnf5 install -y /tmp/sunshine.rpm
-rm -f /tmp/sunshine.rpm
+# Enable COPR repository for Sunshine (official packages don't support Fedora 42 yet)
+dnf5 copr enable -y matte-schwartz/sunshine
+dnf5 install -y sunshine
 
 ### Create NVIDIA GRID licensing configuration directory
 echo "Setting up NVIDIA GRID licensing..."
