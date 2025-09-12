@@ -38,7 +38,7 @@ echo "Setting up NVIDIA driver installation..."
 echo "Installing NVIDIA driver dependencies..."
 dnf5 install -y \
     kernel-devel-$(uname -r) \
-    kernel-headers-$(uname -r) \
+    kernel-headers \
     gcc \
     make \
     dkms \
