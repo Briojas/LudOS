@@ -71,8 +71,8 @@ dnf5 install -y \
 echo "Installing Sunshine streaming server..."
 # Install dnf5-command(copr) for COPR support as suggested by error message
 dnf5 install -y 'dnf5-command(copr)'
-# Install miniupnpc dependency for Sunshine
-dnf5 install -y miniupnpc
+# Install miniupnpc dependency for Sunshine (need both runtime and devel packages)
+dnf5 install -y miniupnpc miniupnpc-devel
 # Enable COPR repository for Sunshine (official packages don't support Fedora 42 yet)
 dnf5 copr enable -y matte-schwartz/sunshine
 dnf5 install -y sunshine
