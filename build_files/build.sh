@@ -52,6 +52,13 @@ mkdir -p /opt/nvidia-drivers
 
 ### Install gaming and streaming components
 echo "Installing gaming components..."
+
+# Enable RPM Fusion for Steam
+dnf5 install -y \
+    https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+    https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+
+# Install gaming components
 dnf5 install -y \
     gamescope \
     steam \
