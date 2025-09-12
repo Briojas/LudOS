@@ -86,14 +86,19 @@ mkdir -p /etc/nvidia
 echo "Configuring kernel parameters..."
 echo "nvidia_drm.modeset=1" >> /etc/kernel/cmdline
 
-### Set up Sunshine capabilities for KMS capture
+### Set up Sunshine capabilities for KMS capture (only if Sunshine was installed)
 echo "Configuring Sunshine capabilities..."
-setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
+if [ -f /usr/bin/sunshine ]; then
+    setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
+else
+    echo "Warning: Sunshine not installed, skipping capability configuration"
+fi
 
 ### Enable required services
 echo "Enabling system services..."
 systemctl enable podman.socket
-systemctl enable sunshine.service
+# Only enable sunshine.service if it exists (Sunshine was successfully installed)
+systemctl enable sunshine.service 2>/dev/null || echo "Warning: sunshine.service not found (Sunshine not installed)"
 systemctl enable nvidia-gridd.service || echo "Warning: nvidia-gridd service not found (will be available after driver installation)"
 
 ### Create LudOS configuration directory and copy setup files
