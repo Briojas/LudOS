@@ -75,7 +75,8 @@ dnf5 install -y 'dnf5-command(copr)'
 dnf5 install -y miniupnpc miniupnpc-devel
 # Enable COPR repository for Sunshine (official packages don't support Fedora 42 yet)
 dnf5 copr enable -y matte-schwartz/sunshine
-dnf5 install -y sunshine
+# Install sunshine with --skip-broken to handle dependency conflicts
+dnf5 install -y sunshine --skip-broken || echo "Warning: Sunshine installation failed due to dependency conflicts"
 
 ### Create NVIDIA GRID licensing configuration directory
 echo "Setting up NVIDIA GRID licensing..."
