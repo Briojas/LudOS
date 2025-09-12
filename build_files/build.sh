@@ -69,8 +69,8 @@ dnf5 install -y \
 
 ### Install Sunshine streaming server
 echo "Installing Sunshine streaming server..."
-# Install dnf5-plugins-core for COPR support
-dnf5 install -y dnf5-plugins-core
+# Install dnf-plugins-core for COPR support (dnf5-plugins-core doesn't exist in Fedora 42)
+dnf5 install -y dnf-plugins-core
 # Enable COPR repository for Sunshine (official packages don't support Fedora 42 yet)
 dnf5 copr enable -y matte-schwartz/sunshine
 dnf5 install -y sunshine
