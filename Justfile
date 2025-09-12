@@ -38,11 +38,11 @@ clean:
     #!/usr/bin/bash
     set -eoux pipefail
     touch _build
-    find *_build* -exec rm -rf {} \;
+    find . -name "*_build*" -type d -exec rm -rf {} + 2>/dev/null || true
     rm -f previous.manifest.json
     rm -f changelog.md
     rm -f output.env
-    rm -f output/
+    rm -rf output/
 
 # Sudo Clean Repo
 [group('Utility')]
