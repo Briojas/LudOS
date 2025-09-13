@@ -234,7 +234,7 @@ _run-vm $target_image $tag $type $config:
     # Determine the image file based on the type
     image_file="output/${type}/disk.${type}"
     if [[ $type == iso ]]; then
-        image_file="output/bootiso/install.iso"
+        image_file="output/bootiso/ludos-$(date +%Y%m%d).iso"
     fi
 
     # Build the image if it does not exist

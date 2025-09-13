@@ -8,13 +8,18 @@ bootc switch --mutate-in-place --transport registry localhost/ludos:latest
 [customizations.installer.modules]
 enable = [
   "org.fedoraproject.Anaconda.Modules.Storage",
-  "org.fedoraproject.Anaconda.Modules.Runtime"
+  "org.fedoraproject.Anaconda.Modules.Runtime",
+  "org.fedoraproject.Anaconda.Modules.Users"
 ]
 disable = [
   "org.fedoraproject.Anaconda.Modules.Network",
   "org.fedoraproject.Anaconda.Modules.Security",
   "org.fedoraproject.Anaconda.Modules.Services",
-  "org.fedoraproject.Anaconda.Modules.Users",
   "org.fedoraproject.Anaconda.Modules.Subscription",
   "org.fedoraproject.Anaconda.Modules.Timezone"
 ]
+
+[customizations.user]
+name = "ludos"
+password = "$6$rounds=4096$saltsalt$L9hjjkQQk/N9OoiOeVZjL7DEgFjKJf7QAFt8bO.eOLzLbDNqJtwhkVO5Z8b9H7EKQpP7zDNqJtwhkVO5Z8b9H7"
+groups = ["wheel", "sudo"]

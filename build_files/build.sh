@@ -21,6 +21,17 @@ dnf5 install -y \
     gcc \
     make
 
+# Disable audit messages on console to prevent boot hang
+echo "audit=0" >> /etc/default/grub
+grub2-mkconfig -o /boot/grub2/grub.cfg || true
+
+# Install minimal X11/Wayland support for Gamescope (no desktop environment)
+echo "Installing minimal graphics support for headless gaming..."
+dnf5 install -y \
+    mesa-dri-drivers \
+    mesa-vulkan-drivers \
+    xorg-x11-server-Xwayland
+
 ### NVIDIA Driver Installation Strategy
 echo "Setting up NVIDIA driver installation..."
 
