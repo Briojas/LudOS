@@ -183,9 +183,12 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
       "${target_image}:${tag}"
 
     mkdir -p output
-    # Use sudo with timeout extension and validate sudo access before long operations
-    sudo -v
-    sudo mv -f $BUILDTMP/* output/
+    # Handle file operations with proper sudo session management
+    echo "Moving build output files..."
+    while ! sudo mv -f $BUILDTMP/* output/ 2>/dev/null; do
+        echo "Please enter your sudo password to complete the build:"
+        sudo -v
+    done
     sudo rmdir $BUILDTMP
     sudo chown -R $USER:$USER output/
 
