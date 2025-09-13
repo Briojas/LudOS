@@ -191,6 +191,12 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
     done
     sudo rmdir $BUILDTMP
     sudo chown -R $USER:$USER output/
+    
+    # Rename ISO file to descriptive format
+    if [[ $type == iso ]] && [[ -f output/bootiso/install.iso ]]; then
+        sudo mv output/bootiso/install.iso output/bootiso/ludos-$(date +%Y%m%d).iso
+        echo "Renamed ISO to ludos-$(date +%Y%m%d).iso"
+    fi
 
 # Podman builds the image from the Containerfile and creates a bootable image
 # Parameters:
