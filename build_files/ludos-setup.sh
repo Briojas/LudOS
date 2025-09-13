@@ -23,10 +23,48 @@ else
     echo "Warning: NVIDIA GRID configuration template not found"
 fi
 
-# Create Sunshine configuration directory
-echo "Setting up Sunshine streaming server..."
-mkdir -p /etc/sunshine
-chown -R sunshine:sunshine /etc/sunshine 2>/dev/null || echo "Note: sunshine user not found, will be created on first run"
+# Install and configure Sunshine streaming server
+echo "Installing Sunshine streaming server..."
+
+# Install dnf5-command(copr) for COPR support
+echo "Installing COPR support..."
+dnf5 install -y 'dnf5-command(copr)' || {
+    echo "Warning: Failed to install dnf5-command(copr)"
+}
+
+# Install miniupnpc dependency for Sunshine
+echo "Installing Sunshine dependencies..."
+dnf5 install -y miniupnpc miniupnpc-devel || {
+    echo "Warning: Failed to install miniupnpc dependencies"
+}
+
+# Enable COPR repository for Sunshine
+echo "Enabling Sunshine COPR repository..."
+dnf5 copr enable -y matte-schwartz/sunshine || {
+    echo "Warning: Failed to enable Sunshine COPR repository"
+}
+
+# Install sunshine
+echo "Installing Sunshine..."
+if dnf5 install -y sunshine; then
+    echo "Sunshine installed successfully!"
+    
+    # Set up Sunshine capabilities for KMS capture
+    echo "Configuring Sunshine capabilities..."
+    if [ -f /usr/bin/sunshine ]; then
+        setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
+    fi
+    
+    # Create Sunshine configuration directory
+    echo "Setting up Sunshine configuration..."
+    mkdir -p /etc/sunshine
+    chown -R sunshine:sunshine /etc/sunshine 2>/dev/null || echo "Note: sunshine user not found, will be created on first run"
+    
+else
+    echo "Warning: Sunshine installation failed due to dependency conflicts"
+    echo "This is expected on Fedora 42 due to libminiupnpc.so.17 compatibility issues"
+    echo "Sunshine service will not be available"
+fi
 
 # Create Gamescope configuration
 echo "Setting up Gamescope virtual display..."

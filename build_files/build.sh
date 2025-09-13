@@ -78,16 +78,8 @@ dnf5 install -y \
     pipewire-pulseaudio \
     wireplumber
 
-### Install Sunshine streaming server
-echo "Installing Sunshine streaming server..."
-# Install dnf5-command(copr) for COPR support as suggested by error message
-dnf5 install -y 'dnf5-command(copr)'
-# Install miniupnpc dependency for Sunshine (need both runtime and devel packages)
-dnf5 install -y miniupnpc miniupnpc-devel
-# Enable COPR repository for Sunshine (official packages don't support Fedora 42 yet)
-dnf5 copr enable -y matte-schwartz/sunshine
-# Install sunshine with --skip-broken to handle dependency conflicts
-dnf5 install -y sunshine --skip-broken || echo "Warning: Sunshine installation failed due to dependency conflicts"
+# Note: Sunshine streaming server installation moved to ludos-setup.sh
+# This ensures Sunshine is installed in the running system after initial setup
 
 ### Create NVIDIA GRID licensing configuration directory
 echo "Setting up NVIDIA GRID licensing..."
@@ -97,20 +89,11 @@ mkdir -p /etc/nvidia
 echo "Configuring kernel parameters..."
 echo "nvidia_drm.modeset=1" >> /etc/kernel/cmdline
 
-### Set up Sunshine capabilities for KMS capture (only if Sunshine was installed)
-echo "Configuring Sunshine capabilities..."
-if [ -f /usr/bin/sunshine ]; then
-    setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
-else
-    echo "Warning: Sunshine not installed, skipping capability configuration"
-fi
-
 ### Enable required services
 echo "Enabling system services..."
 systemctl enable podman.socket
-# Only enable sunshine.service if it exists (Sunshine was successfully installed)
-systemctl enable sunshine.service 2>/dev/null || echo "Warning: sunshine.service not found (Sunshine not installed)"
 systemctl enable nvidia-gridd.service || echo "Warning: nvidia-gridd service not found (will be available after driver installation)"
+# Note: sunshine.service will be enabled during ludos-setup.sh after Sunshine installation
 
 ### Create LudOS configuration directory and copy setup files
 mkdir -p /etc/ludos
