@@ -23,7 +23,11 @@ dnf5 install -y \
 
 # Disable audit messages on console to prevent boot hang
 # For bootc systems, kernel parameters go in /etc/kernel/cmdline
-echo "audit=0 quiet" >> /etc/kernel/cmdline
+echo "audit=0 quiet loglevel=3 systemd.show_status=0" >> /etc/kernel/cmdline
+
+# Fix filesystem issues for bootc systems
+echo "Configuring filesystem parameters..."
+echo "GRUB_CMDLINE_LINUX_DEFAULT=\"audit=0 quiet loglevel=3\"" >> /etc/default/grub
 
 # Install minimal X11/Wayland support for Gamescope (no desktop environment)
 echo "Installing minimal graphics support for headless gaming..."
