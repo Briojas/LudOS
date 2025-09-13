@@ -19,7 +19,7 @@ disable = [
   "org.fedoraproject.Anaconda.Modules.Timezone"
 ]
 
-[customizations.user]
+[[customizations.user]]
 name = "ludos"
 password = "$6$rounds=4096$saltsalt$L9hjjkQQk/N9OoiOeVZjL7DEgFjKJf7QAFt8bO.eOLzLbDNqJtwhkVO5Z8b9H7EKQpP7zDNqJtwhkVO5Z8b9H7"
 groups = ["wheel", "sudo"]
