@@ -22,8 +22,8 @@ dnf5 install -y \
     make
 
 # Disable audit messages on console to prevent boot hang
-echo "audit=0" >> /etc/default/grub
-grub2-mkconfig -o /boot/grub2/grub.cfg || true
+# For bootc systems, kernel parameters go in /etc/kernel/cmdline
+echo "audit=0 quiet" >> /etc/kernel/cmdline
 
 # Install minimal X11/Wayland support for Gamescope (no desktop environment)
 echo "Installing minimal graphics support for headless gaming..."
