@@ -21,13 +21,46 @@ dnf5 install -y \
     gcc \
     make
 
-# Disable audit messages on console to prevent boot hang
-# For bootc systems, kernel parameters go in /etc/kernel/cmdline
-echo "audit=0 quiet loglevel=3 systemd.show_status=0" >> /etc/kernel/cmdline
+# Configure kernel parameters for bootc systems
+echo "Configuring kernel parameters to fix boot issues..."
 
-# Fix filesystem issues for bootc systems
-echo "Configuring filesystem parameters..."
-echo "GRUB_CMDLINE_LINUX_DEFAULT=\"audit=0 quiet loglevel=3\"" >> /etc/default/grub
+# Create kernel cmdline with comprehensive boot fixes
+mkdir -p /etc/kernel
+cat > /etc/kernel/cmdline << 'EOF'
+audit=0 quiet loglevel=3 systemd.show_status=0 rd.systemd.show_status=0 plymouth.enable=0 systemd.mask=systemd-remount-fs.service rw
+EOF
+
+# Also configure traditional GRUB as fallback
+mkdir -p /etc/default
+echo 'GRUB_CMDLINE_LINUX_DEFAULT="audit=0 quiet loglevel=3 systemd.show_status=0 rd.systemd.show_status=0 plymouth.enable=0 systemd.mask=systemd-remount-fs.service rw"' >> /etc/default/grub
+
+# Disable problematic services at build time
+systemctl mask systemd-remount-fs.service || true
+systemctl mask plymouth-start.service || true
+
+# Fix filesystem mount issues that cause systemd-remount-fs.service to fail
+echo "Configuring filesystem fixes..."
+
+# Ensure proper fstab configuration for bootc systems
+cat >> /etc/fstab << 'EOF'
+# LudOS filesystem configuration
+tmpfs /tmp tmpfs defaults,noatime,mode=1777 0 0
+tmpfs /var/tmp tmpfs defaults,noatime,mode=1777 0 0
+EOF
+
+# Create systemd override to prevent remount failures
+mkdir -p /etc/systemd/system/systemd-remount-fs.service.d
+cat > /etc/systemd/system/systemd-remount-fs.service.d/override.conf << 'EOF'
+[Unit]
+ConditionPathExists=!/etc/ludos-skip-remount
+
+[Service]
+ExecStart=
+ExecStart=/bin/true
+EOF
+
+# Create skip file to disable remount service
+touch /etc/ludos-skip-remount
 
 # Install minimal X11/Wayland support for Gamescope (no desktop environment)
 echo "Installing minimal graphics support for headless gaming..."

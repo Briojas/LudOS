@@ -6,6 +6,37 @@ bootc switch --mutate-in-place --transport registry localhost/ludos:latest
 # Create ludos user with sudo privileges
 useradd -m -G wheel ludos
 echo 'ludos:ludos' | chpasswd
+
+# Apply kernel parameters to fix boot issues
+mkdir -p /etc/kernel
+cat > /etc/kernel/cmdline << 'EOF'
+audit=0 quiet loglevel=3 systemd.show_status=0 rd.systemd.show_status=0 plymouth.enable=0 systemd.mask=systemd-remount-fs.service rw
+EOF
+
+# Configure GRUB fallback
+mkdir -p /etc/default
+echo 'GRUB_CMDLINE_LINUX_DEFAULT="audit=0 quiet loglevel=3 systemd.show_status=0 rd.systemd.show_status=0 plymouth.enable=0 systemd.mask=systemd-remount-fs.service rw"' >> /etc/default/grub
+
+# Disable problematic services
+systemctl mask systemd-remount-fs.service || true
+systemctl mask plymouth-start.service || true
+
+# Create systemd override to prevent remount failures
+mkdir -p /etc/systemd/system/systemd-remount-fs.service.d
+cat > /etc/systemd/system/systemd-remount-fs.service.d/override.conf << 'EOF'
+[Unit]
+ConditionPathExists=!/etc/ludos-skip-remount
+
+[Service]
+ExecStart=
+ExecStart=/bin/true
+EOF
+
+# Create skip file to disable remount service
+touch /etc/ludos-skip-remount
+
+# Regenerate initramfs with new kernel parameters
+dracut -f
 %end
 """
 
