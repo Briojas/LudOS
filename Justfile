@@ -192,10 +192,17 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
     sudo rmdir $BUILDTMP
     sudo chown -R $USER:$USER output/
     
-    # Rename ISO file to descriptive format
+    # Rename ISO file with version and build metadata
     if [[ $type == iso ]] && [[ -f output/bootiso/install.iso ]]; then
-        sudo mv output/bootiso/install.iso output/bootiso/ludos-$(date +%Y%m%d).iso
-        echo "Renamed ISO to ludos-$(date +%Y%m%d).iso"
+        VERSION=$(cat VERSION 2>/dev/null || echo "1.0.0")
+        BUILD_DATE=$(date +%Y%m%d)
+        BUILD_TIME=$(date +%H%M)
+        GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        
+        ISO_NAME="ludos-v${VERSION}-${BUILD_DATE}.${BUILD_TIME}-${GIT_HASH}.iso"
+        sudo mv output/bootiso/install.iso output/bootiso/${ISO_NAME}
+        echo "Renamed ISO to ${ISO_NAME}"
+        echo "Version: ${VERSION}, Build: ${BUILD_DATE}.${BUILD_TIME}, Commit: ${GIT_HASH}"
     fi
 
 # Podman builds the image from the Containerfile and creates a bootable image
@@ -207,6 +214,45 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
 
 # Example: just _rebuild-bib localhost/fedora latest qcow2 disk_config/disk.toml
 _rebuild-bib $target_image $tag $type $config: (build target_image tag) && (_build-bib target_image tag type config)
+
+# Version management recipes
+version:
+    @echo "Current version: $(cat VERSION 2>/dev/null || echo '1.0.0')"
+
+# Bump version (patch, minor, or major)
+bump-version type:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    current=$(cat VERSION 2>/dev/null || echo "1.0.0")
+    IFS='.' read -r major minor patch <<< "$current"
+    
+    case "{{type}}" in
+        "patch")
+            patch=$((patch + 1))
+            ;;
+        "minor")
+            minor=$((minor + 1))
+            patch=0
+            ;;
+        "major")
+            major=$((major + 1))
+            minor=0
+            patch=0
+            ;;
+        *)
+            echo "Usage: just bump-version [patch|minor|major]"
+            exit 1
+            ;;
+    esac
+    
+    new_version="${major}.${minor}.${patch}"
+    echo "$new_version" > VERSION
+    echo "Version bumped from $current to $new_version"
+
+# Set specific version
+set-version version:
+    echo "{{version}}" > VERSION
+    @echo "Version set to {{version}}"
 
 # Build a QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
