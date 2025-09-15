@@ -2,3 +2,8 @@ cosign.key
 _build_*
 output
 _build-*/**
+
+# Troubleshooting files - logs, screenshots, dumps, etc.
+troubleshooting/logs/
+troubleshooting/screenshots/
+troubleshooting/dumps/

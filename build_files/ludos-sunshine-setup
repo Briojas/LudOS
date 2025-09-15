@@ -1,0 +1,140 @@
+#!/usr/bin/bash
+
+# LudOS Sunshine Setup Script (Bazzite-style)
+# Mimics Bazzite's ujust setup-sunshine functionality
+
+set -euo pipefail
+
+# Colors for output
+red='\033[0;31m'
+green='\033[0;32m'
+yellow='\033[1;33m'
+blue='\033[0;34m'
+bold='\033[1m'
+reset='\033[0m'
+
+# Function to display colored output
+echo_color() {
+    local color=$1
+    shift
+    echo -e "${color}${bold}$*${reset}"
+}
+
+# Function to choose from options
+choose_option() {
+    local options=("$@")
+    echo_color $blue "Select an option:"
+    for i in "${!options[@]}"; do
+        echo "  $((i+1)). ${options[$i]}"
+    done
+    read -p "Enter choice [1-${#options[@]}]: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#options[@]}" ]; then
+        echo "${options[$((choice-1))]}"
+    else
+        echo "Invalid choice"
+        exit 1
+    fi
+}
+
+# Check if running as root
+if [[ $EUID -ne 0 ]]; then
+    echo_color $red "This script must be run as root (use sudo)"
+    exit 1
+fi
+
+# Get current service state
+if systemctl list-unit-files sunshine.service >/dev/null 2>&1; then
+    SERVICE_STATE="$(systemctl is-enabled --user sunshine.service 2>/dev/null || echo 'disabled')"
+    if [ "$SERVICE_STATE" == "enabled" ]; then
+        SERVICE_STATE="${green}${bold}Enabled${reset}"
+    else
+        SERVICE_STATE="${red}${bold}Disabled${reset}"
+    fi
+else
+    SERVICE_STATE="${yellow}${bold}Not Installed${reset}"
+fi
+
+# Parse command line argument
+ACTION="${1:-}"
+
+if [ "$ACTION" == "help" ]; then
+    echo "Usage: ludos-sunshine-setup <option>"
+    echo "  <option>: Specify the quick option to skip the prompt"
+    echo "  Use 'enable' to enable the Sunshine service"
+    echo "  Use 'disable' to disable the Sunshine service"
+    echo "  Use 'install' to install Sunshine via rpm-ostree"
+    echo "  Use 'portal' to open the Sunshine management portal"
+    echo "  Use 'exit' to exit without making changes"
+    exit 0
+elif [ "$ACTION" == "" ]; then
+    echo_color $blue "Sunshine Service Status: $SERVICE_STATE"
+    
+    if systemctl list-unit-files sunshine.service >/dev/null 2>&1; then
+        OPTION=$(choose_option "Enable" "Disable" "Open Portal" "Exit")
+    else
+        OPTION=$(choose_option "Install via rpm-ostree" "Exit")
+    fi
+else
+    OPTION="$ACTION"
+fi
+
+# Execute the chosen action
+case "${OPTION,,}" in
+    enable)
+        if systemctl list-unit-files sunshine.service >/dev/null 2>&1; then
+            systemctl enable --user --now sunshine.service
+            echo_color $green "Sunshine service enabled and started"
+        else
+            echo_color $red "Sunshine is not installed. Use 'install' option first."
+        fi
+        ;;
+    disable|remove|uninstall)
+        if systemctl list-unit-files sunshine.service >/dev/null 2>&1; then
+            systemctl disable --user --now sunshine.service
+            echo_color $yellow "Sunshine service disabled and stopped"
+        else
+            echo_color $yellow "Sunshine service not found"
+        fi
+        ;;
+    install*)
+        if systemctl list-unit-files sunshine.service >/dev/null 2>&1; then
+            echo_color $yellow "Sunshine is already installed"
+        else
+            echo_color $blue "Installing Sunshine via rpm-ostree..."
+            
+            # Add COPR repository
+            curl -s "https://copr.fedorainfracloud.org/coprs/matte-schwartz/sunshine/repo/fedora-$(rpm -E %fedora)/matte-schwartz-sunshine-fedora-$(rpm -E %fedora).repo" -o /etc/yum.repos.d/sunshine-copr.repo
+            
+            # Install with rpm-ostree
+            if rpm-ostree install --apply-live -y miniupnpc sunshine; then
+                echo_color $green "Sunshine installed successfully!"
+                echo_color $blue "Setting up capabilities..."
+                setcap cap_sys_admin+ep /usr/bin/sunshine || echo_color $yellow "Warning: Could not set capabilities"
+                
+                # Create configuration directory
+                mkdir -p /etc/sunshine
+                echo_color $green "Installation complete. You can now enable the service."
+            else
+                echo_color $red "Installation failed. You may need to reboot and try again."
+                echo_color $blue "Manual installation: rpm-ostree install sunshine && systemctl reboot"
+            fi
+        fi
+        ;;
+    portal|open)
+        echo_color $blue "Opening Sunshine management portal..."
+        if command -v xdg-open >/dev/null 2>&1; then
+            xdg-open https://localhost:47990
+        else
+            echo_color $blue "Please open https://localhost:47990 in your browser"
+        fi
+        ;;
+    exit)
+        echo_color $blue "Exiting without making changes."
+        exit 0
+        ;;
+    *)
+        echo_color $red "Unknown option: $OPTION"
+        echo "Use 'help' for usage information"
+        exit 1
+        ;;
+esac

@@ -115,8 +115,32 @@ dnf5 install -y \
     pipewire-pulseaudio \
     wireplumber
 
-# Note: Sunshine streaming server installation moved to ludos-setup.sh
-# This ensures Sunshine is installed in the running system after initial setup
+# Install Sunshine streaming server at build time (Bazzite approach)
+echo "Installing Sunshine streaming server..."
+
+# Install COPR support for dnf5
+dnf5 install -y 'dnf5-command(copr)'
+
+# Install Sunshine dependencies
+dnf5 install -y miniupnpc miniupnpc-devel
+
+# Enable COPR repository for Sunshine
+dnf5 copr enable -y matte-schwartz/sunshine
+
+# Install Sunshine with error handling for dependency conflicts
+if dnf5 install -y sunshine --skip-broken; then
+    echo "Sunshine installed successfully!"
+    
+    # Set up Sunshine capabilities for KMS capture
+    if [ -f /usr/bin/sunshine ]; then
+        setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
+    fi
+    
+    # Disable sunshine service by default (will be enabled by setup script)
+    systemctl disable sunshine.service || true
+else
+    echo "Warning: Sunshine installation failed, will be handled in post-install setup"
+fi
 
 ### Create NVIDIA GRID licensing configuration directory
 echo "Setting up NVIDIA GRID licensing..."
@@ -137,7 +161,9 @@ mkdir -p /etc/ludos
 cp /ctx/nvidia-gridd.conf.template /etc/ludos/
 cp /ctx/ludos-setup.sh /etc/ludos/
 cp /ctx/nvidia-driver-install.sh /etc/ludos/
+cp /ctx/ludos-sunshine-setup /usr/local/bin/
 chmod +x /etc/ludos/ludos-setup.sh
 chmod +x /etc/ludos/nvidia-driver-install.sh
+chmod +x /usr/local/bin/ludos-sunshine-setup
 
 echo "LudOS build process completed successfully!"

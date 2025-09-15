@@ -23,47 +23,42 @@ else
     echo "Warning: NVIDIA GRID configuration template not found"
 fi
 
-# Install and configure Sunshine streaming server
-echo "Installing Sunshine streaming server..."
+# Configure Sunshine streaming server (Bazzite-style approach)
+echo "Configuring Sunshine streaming server..."
 
-# Install dnf5-command(copr) for COPR support
-echo "Installing COPR support..."
-dnf5 install -y 'dnf5-command(copr)' || {
-    echo "Warning: Failed to install dnf5-command(copr)"
-}
-
-# Install miniupnpc dependency for Sunshine
-echo "Installing Sunshine dependencies..."
-dnf5 install -y miniupnpc miniupnpc-devel || {
-    echo "Warning: Failed to install miniupnpc dependencies"
-}
-
-# Enable COPR repository for Sunshine
-echo "Enabling Sunshine COPR repository..."
-dnf5 copr enable -y matte-schwartz/sunshine || {
-    echo "Warning: Failed to enable Sunshine COPR repository"
-}
-
-# Install sunshine
-echo "Installing Sunshine..."
-if dnf5 install -y sunshine; then
-    echo "Sunshine installed successfully!"
+# Check if Sunshine was installed during build time
+if [ -f /usr/bin/sunshine ]; then
+    echo "Sunshine found, configuring service..."
     
-    # Set up Sunshine capabilities for KMS capture
-    echo "Configuring Sunshine capabilities..."
-    if [ -f /usr/bin/sunshine ]; then
-        setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
-    fi
+    # Ensure capabilities are set (in case they weren't set during build)
+    setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
     
     # Create Sunshine configuration directory
-    echo "Setting up Sunshine configuration..."
     mkdir -p /etc/sunshine
     chown -R sunshine:sunshine /etc/sunshine 2>/dev/null || echo "Note: sunshine user not found, will be created on first run"
     
+    echo "Sunshine configuration completed"
 else
-    echo "Warning: Sunshine installation failed due to dependency conflicts"
-    echo "This is expected on Fedora 42 due to libminiupnpc.so.17 compatibility issues"
-    echo "Sunshine service will not be available"
+    echo "Sunshine not found - attempting post-install using rpm-ostree..."
+    
+    # Use rpm-ostree for post-install package management (bootc compatible)
+    echo "Installing Sunshine using rpm-ostree..."
+    
+    # Enable COPR repository using rpm-ostree
+    if command -v rpm-ostree >/dev/null 2>&1; then
+        # Add COPR repository
+        curl -s https://copr.fedorainfracloud.org/coprs/matte-schwartz/sunshine/repo/fedora-$(rpm -E %fedora)/matte-schwartz-sunshine-fedora-$(rpm -E %fedora).repo -o /etc/yum.repos.d/sunshine-copr.repo
+        
+        # Install Sunshine and dependencies with rpm-ostree
+        rpm-ostree install --apply-live -y miniupnpc sunshine || {
+            echo "Warning: rpm-ostree installation failed"
+            echo "Sunshine will need to be installed manually after reboot"
+            echo "Run: rpm-ostree install sunshine && systemctl reboot"
+        }
+    else
+        echo "Warning: rpm-ostree not available, Sunshine installation skipped"
+        echo "This system may not be using bootc/rpm-ostree"
+    fi
 fi
 
 # Create Gamescope configuration
@@ -118,7 +113,15 @@ systemctl --global enable wireplumber.service
 echo "Enabling LudOS services..."
 systemctl daemon-reload
 systemctl enable ludos-gamescope.service
-systemctl enable sunshine.service
+
+# Only enable sunshine service if it exists
+if systemctl list-unit-files sunshine.service >/dev/null 2>&1; then
+    systemctl enable sunshine.service
+    echo "Sunshine service enabled"
+else
+    echo "Warning: sunshine.service not found - skipping service enablement"
+    echo "If Sunshine was installed via rpm-ostree, please reboot and run this script again"
+fi
 
 echo ""
 echo "=== LudOS Setup Complete ==="
