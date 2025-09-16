@@ -83,28 +83,44 @@ install_tesla_drivers() {
     echo "Steps to obtain Tesla drivers:"
     echo "1. Visit: https://www.nvidia.com/drivers/tesla/"
     echo "2. Select your Tesla GPU model (e.g., Tesla P4)"
-    echo "3. Download the Linux 64-bit driver"
-    echo "4. Place the .run file in /opt/nvidia-drivers/"
+    echo "3. Download the Linux 64-bit driver (.rpm or .run file)"
+    echo "4. Place the driver file in /opt/nvidia-drivers/"
     echo ""
     
-    # Check if Tesla driver is present
-    TESLA_DRIVER=$(find /opt/nvidia-drivers -name "*Tesla*Linux*.run" -o -name "*NVIDIA-Linux*.run" | head -1)
+    # Check for RPM package first (preferred for Fedora)
+    TESLA_RPM=$(find /opt/nvidia-drivers -name "*nvidia*.rpm" -o -name "*Tesla*.rpm" | head -1)
+    TESLA_RUN=$(find /opt/nvidia-drivers -name "*Tesla*Linux*.run" -o -name "*NVIDIA-Linux*.run" | head -1)
     
-    if [[ -z "$TESLA_DRIVER" ]]; then
+    if [[ -n "$TESLA_RPM" ]]; then
+        echo "Found Tesla RPM package: $(basename "$TESLA_RPM")"
+        echo "Installing Tesla datacenter driver via RPM (recommended for Fedora)..."
+        
+        # Install RPM package
+        dnf install -y "$TESLA_RPM"
+        
+        echo "Tesla datacenter driver RPM installation completed"
+        return 0
+        
+    elif [[ -n "$TESLA_RUN" ]]; then
+        echo "Found Tesla RUN installer: $(basename "$TESLA_RUN")"
+        echo "Installing Tesla datacenter driver via RUN installer..."
+        
+        # Make executable and install
+        chmod +x "$TESLA_RUN"
+        "$TESLA_RUN" --silent --dkms --install-libglvnd
+        
+        echo "Tesla datacenter driver RUN installation completed"
+        return 0
+    else
         echo "No Tesla driver found in /opt/nvidia-drivers/"
-        echo "Please download and place the Tesla driver there, then run this script again"
+        echo "Please download and place the Tesla driver (.rpm or .run) there, then run this script again"
+        echo ""
+        echo "For Fedora systems, .rpm packages are recommended:"
+        echo "- Better system integration"
+        echo "- Automatic dependency handling"
+        echo "- Easier updates and removal"
         return 1
     fi
-    
-    echo "Found Tesla driver: $(basename "$TESLA_DRIVER")"
-    echo "Installing Tesla datacenter driver..."
-    
-    # Make executable and install
-    chmod +x "$TESLA_DRIVER"
-    "$TESLA_DRIVER" --silent --dkms --install-libglvnd
-    
-    echo "Tesla datacenter driver installation completed"
-    return 0
 }
 
 # Function to configure driver for virtual display support
