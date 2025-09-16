@@ -84,12 +84,13 @@ install_tesla_drivers() {
     echo "1. Visit: https://www.nvidia.com/drivers/tesla/"
     echo "2. Select your Tesla GPU model (e.g., Tesla P4)"
     echo "3. Download the Linux 64-bit driver (.rpm or .run file)"
-    echo "4. Place the driver file in /opt/nvidia-drivers/"
+    echo "4. Place the driver file in /var/lib/nvidia-drivers/ or /tmp/"
     echo ""
     
     # Check for RPM package first (preferred for Fedora)
-    TESLA_RPM=$(find /opt/nvidia-drivers -name "*nvidia*.rpm" -o -name "*Tesla*.rpm" | head -1)
-    TESLA_RUN=$(find /opt/nvidia-drivers -name "*Tesla*Linux*.run" -o -name "*NVIDIA-Linux*.run" | head -1)
+    # Look in multiple locations for driver files
+    TESLA_RPM=$(find /var/lib/nvidia-drivers /opt/nvidia-drivers /tmp -name "*nvidia*.rpm" -o -name "*Tesla*.rpm" 2>/dev/null | head -1)
+    TESLA_RUN=$(find /var/lib/nvidia-drivers /opt/nvidia-drivers /tmp -name "*Tesla*Linux*.run" -o -name "*NVIDIA-Linux*.run" 2>/dev/null | head -1)
     
     if [[ -n "$TESLA_RPM" ]]; then
         echo "Found Tesla RPM package: $(basename "$TESLA_RPM")"
@@ -112,8 +113,12 @@ install_tesla_drivers() {
         echo "Tesla datacenter driver RUN installation completed"
         return 0
     else
-        echo "No Tesla driver found in /opt/nvidia-drivers/"
-        echo "Please download and place the Tesla driver (.rpm or .run) there, then run this script again"
+        echo "No Tesla driver found in /var/lib/nvidia-drivers/, /opt/nvidia-drivers/, or /tmp/"
+        echo "Please download and place the Tesla driver (.rpm or .run) in one of these locations, then run this script again"
+        echo ""
+        echo "Recommended locations (in order of preference):"
+        echo "1. /var/lib/nvidia-drivers/ (persistent, writable)"
+        echo "2. /tmp/ (temporary, but always writable)"
         echo ""
         echo "For Fedora systems, .rpm packages are recommended:"
         echo "- Better system integration"

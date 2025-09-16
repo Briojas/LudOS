@@ -209,14 +209,17 @@ sudo su -
 
 2. **Place driver in VM:**
    ```bash
-   # Copy driver to expected location
-   sudo mkdir -p /opt/nvidia-drivers
+   # Create writable directory for drivers (bootc/rpm-ostree compatible)
+   sudo mkdir -p /var/lib/nvidia-drivers
    
    # For RPM package (recommended):
-   sudo cp nvidia-driver-*.rpm /opt/nvidia-drivers/
+   sudo cp nvidia-driver-*.rpm /var/lib/nvidia-drivers/
    
    # Or for RUN installer:
-   sudo cp NVIDIA-Linux-x86_64-*.run /opt/nvidia-drivers/
+   sudo cp NVIDIA-Linux-x86_64-*.run /var/lib/nvidia-drivers/
+   
+   # Alternative: Use /tmp if /var/lib is also read-only
+   # sudo cp nvidia-driver-*.rpm /tmp/
    ```
 
 3. **Run installation script:**

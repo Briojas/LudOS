@@ -95,8 +95,10 @@ dnf5 install -y \
     libglvnd-opengl \
     libglvnd-devel
 
-# Create directory for manual driver installation
-mkdir -p /opt/nvidia-drivers
+# Create directory for manual driver installation in writable location
+mkdir -p /var/lib/nvidia-drivers
+chmod 755 /var/lib/nvidia-drivers
+chown root:root /var/lib/nvidia-drivers
 
 ### Install gaming and streaming components
 echo "Installing gaming components..."
