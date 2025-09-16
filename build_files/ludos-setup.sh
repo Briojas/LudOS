@@ -46,14 +46,14 @@ else
     
     # Enable COPR repository using rpm-ostree
     if command -v rpm-ostree >/dev/null 2>&1; then
-        # Add COPR repository
-        curl -s https://copr.fedorainfracloud.org/coprs/matte-schwartz/sunshine/repo/fedora-$(rpm -E %fedora)/matte-schwartz-sunshine-fedora-$(rpm -E %fedora).repo -o /etc/yum.repos.d/sunshine-copr.repo
+        # Add official LizardByte COPR repository
+        curl -s https://copr.fedorainfracloud.org/coprs/lizardbyte/stable/repo/fedora-$(rpm -E %fedora)/lizardbyte-stable-fedora-$(rpm -E %fedora).repo -o /etc/yum.repos.d/lizardbyte-sunshine.repo
         
-        # Install Sunshine and dependencies with rpm-ostree
-        rpm-ostree install --apply-live -y miniupnpc sunshine || {
+        # Install Sunshine with official package (capital S)
+        rpm-ostree install --apply-live -y Sunshine || {
             echo "Warning: rpm-ostree installation failed"
             echo "Sunshine will need to be installed manually after reboot"
-            echo "Run: rpm-ostree install sunshine && systemctl reboot"
+            echo "Run: rpm-ostree install Sunshine && systemctl reboot"
         }
     else
         echo "Warning: rpm-ostree not available, Sunshine installation skipped"

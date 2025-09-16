@@ -102,11 +102,11 @@ case "${OPTION,,}" in
         else
             echo_color $blue "Installing Sunshine via rpm-ostree..."
             
-            # Add COPR repository
-            curl -s "https://copr.fedorainfracloud.org/coprs/matte-schwartz/sunshine/repo/fedora-$(rpm -E %fedora)/matte-schwartz-sunshine-fedora-$(rpm -E %fedora).repo" -o /etc/yum.repos.d/sunshine-copr.repo
+            # Add official LizardByte COPR repository
+            curl -s "https://copr.fedorainfracloud.org/coprs/lizardbyte/stable/repo/fedora-$(rpm -E %fedora)/lizardbyte-stable-fedora-$(rpm -E %fedora).repo" -o /etc/yum.repos.d/lizardbyte-sunshine.repo
             
-            # Install with rpm-ostree
-            if rpm-ostree install --apply-live -y miniupnpc sunshine; then
+            # Install with rpm-ostree (official package name is "Sunshine" with capital S)
+            if rpm-ostree install --apply-live -y Sunshine; then
                 echo_color $green "Sunshine installed successfully!"
                 echo_color $blue "Setting up capabilities..."
                 setcap cap_sys_admin+ep /usr/bin/sunshine || echo_color $yellow "Warning: Could not set capabilities"
@@ -116,7 +116,7 @@ case "${OPTION,,}" in
                 echo_color $green "Installation complete. You can now enable the service."
             else
                 echo_color $red "Installation failed. You may need to reboot and try again."
-                echo_color $blue "Manual installation: rpm-ostree install sunshine && systemctl reboot"
+                echo_color $blue "Manual installation: rpm-ostree install Sunshine && systemctl reboot"
             fi
         fi
         ;;

@@ -115,20 +115,18 @@ dnf5 install -y \
     pipewire-pulseaudio \
     wireplumber
 
-# Install Sunshine streaming server at build time (Bazzite approach)
+# Install Sunshine streaming server at build time (official LizardByte approach)
 echo "Installing Sunshine streaming server..."
 
 # Install COPR support for dnf5
 dnf5 install -y 'dnf5-command(copr)'
 
-# Install Sunshine dependencies
-dnf5 install -y miniupnpc miniupnpc-devel
+# Enable official LizardByte COPR repository for Sunshine
+echo "Enabling official LizardByte COPR repository..."
+dnf5 copr enable -y lizardbyte/stable
 
-# Enable COPR repository for Sunshine
-dnf5 copr enable -y matte-schwartz/sunshine
-
-# Install Sunshine with error handling for dependency conflicts
-if dnf5 install -y sunshine --skip-broken; then
+# Install Sunshine with official package (should resolve dependency issues)
+if dnf5 install -y Sunshine; then
     echo "Sunshine installed successfully!"
     
     # Set up Sunshine capabilities for KMS capture
