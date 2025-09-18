@@ -1,0 +1,146 @@
+#!/bin/bash
+
+# LudOS Tesla NVIDIA kmod Build Script
+# Builds Tesla datacenter drivers using RPM Fusion toolset
+# POST-INSTALL ONLY - User must download Tesla drivers themselves
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LUDOS_ROOT="$(dirname "$SCRIPT_DIR")"
+TESLA_VERSION="${TESLA_VERSION:-580.82.07}"
+BUILD_DIR="${BUILD_DIR:-$SCRIPT_DIR/build}"
+
+echo "=== LudOS Tesla NVIDIA kmod Builder ==="
+echo "Tesla Driver Version: $TESLA_VERSION"
+echo "Build Directory: $BUILD_DIR"
+echo ""
+
+# Check if running on Fedora/bootc system
+if ! command -v rpm-ostree >/dev/null 2>&1 && ! grep -q "fedora" /etc/os-release; then
+    echo "WARNING: This script is designed for Fedora/bootc systems"
+    echo "Continuing anyway..."
+fi
+
+# Create build environment
+echo "Setting up build environment..."
+mkdir -p "$BUILD_DIR"/{BUILD,BUILDROOT,RPMS,SRPMS,SOURCES,SPECS}
+
+# Install build dependencies
+echo "Installing build dependencies..."
+if command -v rpm-ostree >/dev/null 2>&1; then
+    echo "Installing dependencies via rpm-ostree..."
+    rpm-ostree install --apply-live \
+        rpm-build \
+        kernel-devel \
+        kernel-headers \
+        gcc \
+        make \
+        wget \
+        curl \
+        xz || {
+        echo "Failed to install dependencies via rpm-ostree"
+        echo "You may need to reboot and try again"
+        exit 1
+    }
+else
+    echo "Installing dependencies via dnf..."
+    dnf install -y \
+        rpm-build \
+        kernel-devel \
+        kernel-headers \
+        gcc \
+        make \
+        wget \
+        curl \
+        xz
+fi
+
+# Copy spec files and patches
+echo "Copying spec files and patches..."
+cp "$SCRIPT_DIR/nvidia-tesla-kmod.spec" "$BUILD_DIR/SPECS/"
+cp "$SCRIPT_DIR/nvidia-kmodtool-excludekernel-filterfile" "$BUILD_DIR/SOURCES/"
+cp "$SCRIPT_DIR/make_modeset_default.patch" "$BUILD_DIR/SOURCES/"
+cp "$SCRIPT_DIR/ludos-tesla-optimizations.patch" "$BUILD_DIR/SOURCES/"
+cp "$SCRIPT_DIR/nvidia-kmod-noopen-checks" "$BUILD_DIR/SOURCES/"
+cp "$SCRIPT_DIR/nvidia-kmod-noopen-pciids.txt" "$BUILD_DIR/SOURCES/"
+
+# Check for Tesla driver (user must provide)
+echo "Checking for Tesla driver $TESLA_VERSION..."
+TESLA_FILE="$BUILD_DIR/SOURCES/NVIDIA-Linux-x86_64-$TESLA_VERSION.run"
+
+if [ ! -f "$TESLA_FILE" ]; then
+    echo "ERROR: Tesla driver not found at $TESLA_FILE"
+    echo ""
+    echo "NVIDIA LICENSING COMPLIANCE:"
+    echo "Tesla datacenter drivers must be downloaded by the end user."
+    echo "LudOS cannot redistribute NVIDIA proprietary drivers."
+    echo ""
+    echo "Please download the Tesla driver manually:"
+    echo "1. Visit: https://www.nvidia.com/Download/index.aspx"
+    echo "2. Select: Tesla / Linux 64-bit / $TESLA_VERSION"
+    echo "3. Download: NVIDIA-Linux-x86_64-$TESLA_VERSION.run"
+    echo "4. Place in: $BUILD_DIR/SOURCES/"
+    echo "5. Re-run this script"
+    echo ""
+    echo "Alternative: Use environment variable to specify driver location:"
+    echo "TESLA_DRIVER_PATH=/path/to/driver.run $0"
+    exit 1
+fi
+
+echo "Found Tesla driver: $TESLA_FILE"
+
+# Extract and create tarball
+echo "Extracting Tesla driver..."
+cd "$BUILD_DIR/SOURCES"
+mkdir -p "nvidia-tesla-driver-$TESLA_VERSION"
+sh "NVIDIA-Linux-x86_64-$TESLA_VERSION.run" --extract-only --target "nvidia-tesla-driver-$TESLA_VERSION/"
+
+echo "Creating Tesla driver tarball..."
+tar -cJf "nvidia-tesla-driver-$TESLA_VERSION.tar.xz" "nvidia-tesla-driver-$TESLA_VERSION/"
+
+# Get current kernel version
+KERNEL_VERSION=$(uname -r)
+KERNEL_RELEASE=$(echo "$KERNEL_VERSION" | cut -d'-' -f2-)
+KERNEL_BASE=$(echo "$KERNEL_VERSION" | cut -d'-' -f1)
+KERNEL_DIST=$(echo "$KERNEL_VERSION" | sed 's/.*\(\.[a-z][a-z0-9]*[0-9]\).*/\1/')
+
+echo "Building for kernel: $KERNEL_VERSION"
+echo "Kernel base: $KERNEL_BASE"
+echo "Kernel release: $KERNEL_RELEASE"
+echo "Kernel dist: $KERNEL_DIST"
+
+# Build RPM package
+echo "Building Tesla kmod RPM package..."
+cd "$BUILD_DIR"
+
+rpmbuild \
+    --define "%_topdir $(pwd)" \
+    --define "debug_package %{nil}" \
+    --define "kernel $KERNEL_BASE" \
+    --define "kernel_release $KERNEL_RELEASE" \
+    --define "kernel_dist $KERNEL_DIST" \
+    --define "driver $TESLA_VERSION" \
+    --define "epoch 1" \
+    -v -bb SPECS/nvidia-tesla-kmod.spec
+
+# Check build results
+if [ -d "RPMS" ] && [ "$(find RPMS -name '*.rpm' | wc -l)" -gt 0 ]; then
+    echo ""
+    echo "=== Build Successful! ==="
+    echo "Tesla kmod packages built:"
+    find RPMS -name '*.rpm' -exec basename {} \;
+    echo ""
+    echo "Installation command:"
+    echo "sudo rpm-ostree install $(find RPMS -name '*.rpm' | head -1)"
+    echo ""
+    echo "Or for traditional systems:"
+    echo "sudo dnf install $(find RPMS -name '*.rpm' | head -1)"
+else
+    echo ""
+    echo "=== Build Failed! ==="
+    echo "Check build logs for errors"
+    exit 1
+fi
+
+echo "Tesla kmod build completed successfully!"

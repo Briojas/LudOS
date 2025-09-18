@@ -7,3 +7,9 @@ _build-*/**
 troubleshooting/logs/
 troubleshooting/screenshots/
 troubleshooting/dumps/
+
+# NVIDIA kmod build artifacts
+nvidia-kmod/build/
+nvidia-kmod/*.run
+nvidia-kmod/*.rpm
+nvidia-kmod/*.tar.xz

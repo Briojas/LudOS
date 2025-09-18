@@ -1,0 +1,262 @@
+#!/bin/bash
+
+# LudOS Tesla Driver Setup - Bazzite-style ujust equivalent
+# Provides user-friendly Tesla datacenter driver installation
+
+set -euo pipefail
+
+SCRIPT_NAME="$(basename "$0")"
+NVIDIA_KMOD_DIR="/etc/ludos/nvidia-kmod"
+
+show_help() {
+    cat << EOF
+LudOS Tesla Driver Setup
+
+USAGE:
+    $SCRIPT_NAME <command> [options]
+
+COMMANDS:
+    install <driver_file>    Install Tesla datacenter drivers from .run file
+    remove                   Remove Tesla drivers and revert to consumer drivers
+    status                   Show current driver status
+    list-versions           List available Tesla driver versions
+    help                    Show this help message
+
+EXAMPLES:
+    # Install Tesla drivers from downloaded .run file
+    $SCRIPT_NAME install ~/Downloads/NVIDIA-Linux-x86_64-580.82.07.run
+    
+    # Check current driver status
+    $SCRIPT_NAME status
+    
+    # Remove Tesla drivers
+    $SCRIPT_NAME remove
+
+NOTES:
+    - Tesla drivers must be downloaded manually from NVIDIA
+    - Visit: https://www.nvidia.com/Download/index.aspx
+    - Select: Tesla / Linux 64-bit / [Version]
+    - This tool builds bootc-compatible kmod packages
+    - Requires reboot after installation
+
+EOF
+}
+
+check_requirements() {
+    if [ "$EUID" -ne 0 ]; then
+        echo "ERROR: This script must be run as root (use sudo)"
+        exit 1
+    fi
+    
+    if ! command -v rpm-ostree >/dev/null 2>&1; then
+        echo "ERROR: This script requires a bootc/rpm-ostree system"
+        exit 1
+    fi
+    
+    if [ ! -d "$NVIDIA_KMOD_DIR" ]; then
+        echo "ERROR: LudOS Tesla kmod tools not found at $NVIDIA_KMOD_DIR"
+        echo "Please ensure LudOS is properly installed"
+        exit 1
+    fi
+}
+
+show_status() {
+    echo "=== LudOS NVIDIA Driver Status ==="
+    echo ""
+    
+    # Check current driver status
+    if [ -f /etc/ludos/nvidia-driver-status ]; then
+        echo "Driver Status:"
+        cat /etc/ludos/nvidia-driver-status
+        echo ""
+    else
+        echo "Driver Status: Unknown"
+        echo ""
+    fi
+    
+    # Check nvidia-smi
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        echo "NVIDIA SMI Output:"
+        nvidia-smi --query-gpu=name,driver_version,pci.bus_id --format=csv,noheader,nounits || echo "nvidia-smi failed"
+        echo ""
+    else
+        echo "nvidia-smi: Not available"
+        echo ""
+    fi
+    
+    # Check loaded modules
+    echo "Loaded NVIDIA Modules:"
+    lsmod | grep nvidia || echo "No NVIDIA modules loaded"
+    echo ""
+    
+    # Check installed packages
+    echo "Installed NVIDIA Packages:"
+    rpm -qa | grep -i nvidia | sort || echo "No NVIDIA packages found"
+}
+
+install_tesla_drivers() {
+    local driver_file="$1"
+    
+    if [ ! -f "$driver_file" ]; then
+        echo "ERROR: Driver file not found: $driver_file"
+        exit 1
+    fi
+    
+    # Validate it's a Tesla driver
+    if ! echo "$driver_file" | grep -q "NVIDIA-Linux-x86_64"; then
+        echo "ERROR: Invalid driver file format. Expected: NVIDIA-Linux-x86_64-*.run"
+        exit 1
+    fi
+    
+    # Extract version from filename
+    local version
+    version=$(basename "$driver_file" | sed 's/NVIDIA-Linux-x86_64-\(.*\)\.run/\1/')
+    
+    echo "=== Installing Tesla Driver $version ==="
+    echo ""
+    echo "NVIDIA LICENSING NOTICE:"
+    echo "By proceeding, you acknowledge that you have downloaded this"
+    echo "Tesla driver directly from NVIDIA and agree to their license terms."
+    echo ""
+    read -p "Continue with installation? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installation cancelled"
+        exit 0
+    fi
+    
+    # Copy driver to build directory
+    echo "Preparing Tesla driver build..."
+    mkdir -p "$NVIDIA_KMOD_DIR/build/SOURCES"
+    cp "$driver_file" "$NVIDIA_KMOD_DIR/build/SOURCES/"
+    
+    # Set version and build
+    cd "$NVIDIA_KMOD_DIR"
+    export TESLA_VERSION="$version"
+    
+    echo "Building Tesla kmod packages..."
+    if ./build-tesla-kmod.sh; then
+        echo ""
+        echo "Tesla kmod build successful!"
+        
+        # Find built RPM
+        local tesla_rpm
+        tesla_rpm=$(find "$NVIDIA_KMOD_DIR/build/RPMS" -name "nvidia-tesla-kmod-*.rpm" | head -1)
+        
+        if [ -n "$tesla_rpm" ] && [ -f "$tesla_rpm" ]; then
+            echo "Installing Tesla kmod package..."
+            
+            # Remove consumer drivers first
+            echo "Removing consumer NVIDIA drivers..."
+            rpm-ostree uninstall kmod-nvidia xorg-x11-drv-nvidia-cuda || echo "Consumer drivers not installed"
+            
+            # Install Tesla drivers
+            echo "Installing Tesla drivers..."
+            rpm-ostree install "$tesla_rpm"
+            
+            # Update status
+            echo "TESLA_DRIVERS_INSTALLED=true" > /etc/ludos/nvidia-driver-status
+            echo "TESLA_VERSION=$version" >> /etc/ludos/nvidia-driver-status
+            
+            echo ""
+            echo "✅ Tesla driver installation completed!"
+            echo "🔄 Reboot required to activate Tesla drivers"
+            echo ""
+            read -p "Reboot now? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                systemctl reboot
+            fi
+        else
+            echo "ERROR: Tesla kmod package not found after build"
+            exit 1
+        fi
+    else
+        echo "ERROR: Tesla kmod build failed"
+        echo "Check logs in $NVIDIA_KMOD_DIR/build/"
+        exit 1
+    fi
+}
+
+remove_tesla_drivers() {
+    echo "=== Removing Tesla Drivers ==="
+    echo ""
+    
+    # Check if Tesla drivers are installed
+    if [ -f /etc/ludos/nvidia-driver-status ] && grep -q "TESLA_DRIVERS_INSTALLED=true" /etc/ludos/nvidia-driver-status; then
+        echo "Removing Tesla drivers and reverting to consumer drivers..."
+        
+        # Remove Tesla packages
+        rpm-ostree uninstall nvidia-tesla-kmod || echo "Tesla kmod not installed"
+        
+        # Install consumer drivers
+        echo "Installing consumer NVIDIA drivers..."
+        rpm-ostree install kmod-nvidia xorg-x11-drv-nvidia-cuda
+        
+        # Update status
+        echo "CONSUMER_DRIVERS_INSTALLED=true" > /etc/ludos/nvidia-driver-status
+        
+        echo ""
+        echo "✅ Tesla drivers removed, consumer drivers installed"
+        echo "🔄 Reboot required to activate consumer drivers"
+        echo ""
+        read -p "Reboot now? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            systemctl reboot
+        fi
+    else
+        echo "Tesla drivers are not currently installed"
+    fi
+}
+
+list_versions() {
+    echo "=== Available Tesla Driver Versions ==="
+    echo ""
+    echo "Visit NVIDIA's Tesla driver download page:"
+    echo "https://www.nvidia.com/Download/index.aspx"
+    echo ""
+    echo "Select:"
+    echo "- Product Type: Tesla"
+    echo "- Product Series: [Your Tesla GPU series]"
+    echo "- Operating System: Linux 64-bit"
+    echo ""
+    echo "Common Tesla driver versions:"
+    echo "- 580.82.07 (Latest Production Branch)"
+    echo "- 535.183.01 (Long Term Support)"
+    echo "- 470.256.02 (Legacy Support)"
+    echo ""
+    echo "Download the .run file and use:"
+    echo "$SCRIPT_NAME install /path/to/NVIDIA-Linux-x86_64-VERSION.run"
+}
+
+# Main command processing
+case "${1:-help}" in
+    "install")
+        if [ $# -lt 2 ]; then
+            echo "ERROR: Driver file required"
+            echo "Usage: $SCRIPT_NAME install <driver_file>"
+            exit 1
+        fi
+        check_requirements
+        install_tesla_drivers "$2"
+        ;;
+    "remove")
+        check_requirements
+        remove_tesla_drivers
+        ;;
+    "status")
+        show_status
+        ;;
+    "list-versions")
+        list_versions
+        ;;
+    "help"|"-h"|"--help")
+        show_help
+        ;;
+    *)
+        echo "ERROR: Unknown command: $1"
+        echo "Use '$SCRIPT_NAME help' for usage information"
+        exit 1
+        ;;
+esac

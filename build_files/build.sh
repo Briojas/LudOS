@@ -69,53 +69,56 @@ dnf5 install -y \
     mesa-vulkan-drivers \
     xorg-x11-server-Xwayland
 
-### NVIDIA Driver Installation Strategy
-echo "Setting up NVIDIA driver installation..."
-
-# Note: NVIDIA GRID vGPU drivers must be manually installed
-# They are not available in public repositories due to licensing restrictions
-# 
-# For Tesla P4 and other datacenter GPUs, you have two options:
-# 1. GRID vGPU drivers (for virtualized GPU with licensing) - RECOMMENDED
-# 2. Tesla datacenter drivers (for bare metal, no GRID licensing)
-#
-# This script prepares the system but requires manual driver installation
-# See /etc/ludos/nvidia-driver-install.sh for installation instructions
-
-# Install driver dependencies
-echo "Installing NVIDIA driver dependencies..."
-dnf5 install -y \
-    kernel-devel-$(uname -r) \
-    kernel-headers \
-    gcc \
-    make \
-    dkms \
-    acpid \
-    libglvnd-glx \
-    libglvnd-opengl \
-    libglvnd-devel
-
-# Create directory for manual driver installation in writable location
-mkdir -p /var/lib/nvidia-drivers
-chmod 755 /var/lib/nvidia-drivers
-chown root:root /var/lib/nvidia-drivers
-
 ### Install gaming and streaming components
 echo "Installing gaming components..."
 
-# Enable RPM Fusion for Steam
+# Install Gamescope for virtual display (essential for headless gaming)
+echo "Installing Gamescope virtual display manager..."
+dnf5 install -y gamescope
+
+# Install Steam and gaming dependencies
+echo "Installing Steam and gaming dependencies..."
+dnf5 install -y \
+    steam \
+    gamemode
+
+### LudOS NVIDIA Driver Strategy:
+# 1. Install consumer kmod-nvidia by default (legally compliant)
+# 2. Provide Tesla/GRID kmod build tools for post-install use
+# 3. Users download and build Tesla drivers themselves (licensing compliant)
+
+echo "Installing NVIDIA driver infrastructure..."
+
+# Enable RPM Fusion repositories (required for kmod-nvidia)
+echo "Enabling RPM Fusion repositories..."
 dnf5 install -y \
     https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
     https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 
-# Install gaming components
+# Install consumer kmod-nvidia by default (bootc compatible, legally compliant)
+echo "Installing kmod-nvidia (consumer drivers) for bootc compatibility..."
 dnf5 install -y \
-    gamescope \
-    steam \
-    pipewire \
-    pipewire-alsa \
-    pipewire-pulseaudio \
-    wireplumber
+    kmod-nvidia \
+    xorg-x11-drv-nvidia-cuda \
+    nvidia-settings \
+    libglvnd-glx \
+    libglvnd-opengl \
+    libglvnd-devel
+
+# Install Tesla kmod build dependencies for post-install use
+echo "Installing Tesla kmod build dependencies..."
+dnf5 install -y \
+    rpm-build \
+    kernel-devel \
+    kernel-headers \
+    gcc \
+    make \
+    wget \
+    curl \
+    xz \
+    kmodtool
+
+echo "CONSUMER_DRIVERS_INSTALLED=true" > /etc/ludos/nvidia-driver-status
 
 # Install Sunshine streaming server at build time (official LizardByte approach)
 echo "Installing Sunshine streaming server..."
@@ -162,8 +165,12 @@ cp /ctx/nvidia-gridd.conf.template /etc/ludos/
 cp /ctx/ludos-setup.sh /etc/ludos/
 cp /ctx/nvidia-driver-install.sh /etc/ludos/
 cp /ctx/ludos-sunshine-setup /usr/local/bin/
+cp /ctx/ludos-tesla-setup /usr/local/bin/
+cp -r /ctx/nvidia-kmod /etc/ludos/nvidia-kmod
 chmod +x /etc/ludos/ludos-setup.sh
 chmod +x /etc/ludos/nvidia-driver-install.sh
 chmod +x /usr/local/bin/ludos-sunshine-setup
+chmod +x /usr/local/bin/ludos-tesla-setup
+chmod +x /etc/ludos/nvidia-kmod/build-tesla-kmod.sh
 
 echo "LudOS build process completed successfully!"

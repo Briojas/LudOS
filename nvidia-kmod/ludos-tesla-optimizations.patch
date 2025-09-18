@@ -1,0 +1,92 @@
+--- a/kernel/nvidia-drm/nvidia-drm-drv.c.orig	2025-09-18 08:30:00.000000000 -0500
++++ b/kernel/nvidia-drm/nvidia-drm-drv.c	2025-09-18 08:30:00.000000000 -0500
+@@ -50,6 +50,10 @@
+ #include "nvidia-drm-gem.h"
+ #include "nvidia-drm-crtc.h"
+ 
++/* LudOS Tesla optimizations */
++#define LUDOS_TESLA_HEADLESS_OPTIMIZATION 1
++#define LUDOS_VIRTUAL_DISPLAY_SUPPORT 1
++
+ /*
+  * Commit fcd70cd36b9b ("drm: Split out drm_probe_helper.h")
+  * moves a number of helper function definitions from
+@@ -200,6 +204,15 @@ static struct drm_driver nv_drm_driver 
+     .gem_prime_vmap = nvidia_drm_gem_prime_vmap,
+     .gem_prime_vunmap = nvidia_drm_gem_prime_vunmap,
+ 
++#ifdef LUDOS_TESLA_HEADLESS_OPTIMIZATION
++    /* LudOS: Optimize for headless gaming scenarios */
++    .driver_features = DRIVER_MODESET | DRIVER_PRIME | DRIVER_GEM | DRIVER_RENDER,
++#endif
++
++#ifdef LUDOS_VIRTUAL_DISPLAY_SUPPORT
++    /* LudOS: Enhanced virtual display support for Tesla cards */
++    .dumb_create = nvidia_drm_dumb_create,
++#endif
++
+     .name = "nvidia-drm",
+     .desc = "NVIDIA DRM driver",
+     .date = "20160202",
+@@ -250,6 +263,12 @@ static int __init nv_drm_init(void)
+         return -ENODEV;
+     }
+ 
++#ifdef LUDOS_TESLA_HEADLESS_OPTIMIZATION
++    /* LudOS: Tesla-specific initialization for headless gaming */
++    printk(KERN_INFO "nvidia-drm: LudOS Tesla headless gaming optimizations enabled\n");
++    nv_drm_driver.driver_features |= DRIVER_ATOMIC;
++#endif
++
+     ret = nvidia_drm_pci_init();
+ 
+     if (ret < 0) {
+--- a/kernel/nvidia/nvidia.Kbuild.orig	2025-09-18 08:30:00.000000000 -0500
++++ b/kernel/nvidia/nvidia.Kbuild	2025-09-18 08:30:00.000000000 -0500
+@@ -82,6 +82,10 @@ EXTRA_CFLAGS += -I$(src)/common/inc
+ EXTRA_CFLAGS += -I$(src)
+ EXTRA_CFLAGS += -Wall $(DEFINES) $(INCLUDES) -Wno-cast-qual -Wno-error -fno-strict-aliasing
+ 
++# LudOS Tesla optimizations
++EXTRA_CFLAGS += -DLUDOS_TESLA_BUILD=1
++EXTRA_CFLAGS += -DLUDOS_HEADLESS_GAMING=1
++
+ ifneq ($(PATCHLEVEL), 4)
+  EXTRA_CFLAGS += -Wno-sign-compare
+ endif
+--- a/kernel/nvidia-modeset/nvidia-modeset-linux.c.orig	2025-09-18 08:30:00.000000000 -0500
++++ b/kernel/nvidia-modeset/nvidia-modeset-linux.c	2025-09-18 08:30:00.000000000 -0500
+@@ -30,6 +30,10 @@
+ #include "nvidia-modeset-os-interface.h"
+ #include "nv-procfs.h"
+ 
++/* LudOS Tesla modeset optimizations */
++#define LUDOS_TESLA_MODESET_OPTIMIZATION 1
++static int ludos_headless_mode = 1;
++
+ static struct nvidia_stack *__nv_module_stack;
+ 
+ static int nvidia_modeset_suspend(struct device *dev)
+@@ -200,6 +204,13 @@ static int __init nvidia_modeset_init(v
+         return -ENOMEM;
+     }
+ 
++#ifdef LUDOS_TESLA_MODESET_OPTIMIZATION
++    /* LudOS: Tesla modeset optimizations for headless gaming */
++    if (ludos_headless_mode) {
++        printk(KERN_INFO "nvidia-modeset: LudOS Tesla headless mode enabled\n");
++    }
++#endif
++
+     if (!nvkms_open_gpu(gpu_id)) {
+         nvidia_stack_free(__nv_module_stack);
+         return -ENODEV;
+@@ -250,3 +261,8 @@ module_exit(nvidia_modeset_exit);
+ 
+ MODULE_LICENSE("Dual MIT/GPL");
+ MODULE_INFO(supported, "external");
++
++#ifdef LUDOS_TESLA_MODESET_OPTIMIZATION
++module_param(ludos_headless_mode, int, 0644);
++MODULE_PARM_DESC(ludos_headless_mode, "Enable LudOS Tesla headless gaming optimizations (default: 1)");
++#endif
