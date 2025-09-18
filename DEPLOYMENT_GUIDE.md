@@ -185,58 +185,74 @@ ls -la output/bootiso/
 
 ## Part 3: Post-Installation Configuration
 
-### Step 8: Install NVIDIA Drivers
+### Step 8: Install NVIDIA Tesla Drivers
 
+LudOS ships with consumer NVIDIA drivers by default, but provides automated Tesla driver installation for datacenter GPUs.
+
+#### Option A: Quick Setup (Consumer Drivers)
 ```bash
 # SSH into VM or use console
 ssh ludos@<vm-ip-address>
 
-# Switch to root
-sudo su -
-
-# Run NVIDIA driver installation script
-/etc/ludos/nvidia-driver-install.sh
+# Run post-installation setup with consumer drivers
+sudo /etc/ludos/ludos-setup.sh
 ```
 
-**Tesla Datacenter Driver Installation:**
+#### Option B: Tesla Datacenter Drivers (Recommended for Tesla P4)
 
-1. **Download Tesla Drivers:**
-   - Visit: https://www.nvidia.com/drivers/tesla/
-   - Select Tesla P4 from GPU dropdown
-   - Choose "Linux 64-bit" and your Fedora version
-   - Download either `.rpm` (recommended) or `.run` file
-   - Transfer to VM via SCP or mount ISO/USB
+1. **Download Tesla Drivers from NVIDIA:**
+   - Visit: https://www.nvidia.com/Download/index.aspx
+   - Select: **Tesla** / **Linux 64-bit** / [Version]
+   - Download: `NVIDIA-Linux-x86_64-VERSION.run`
+   - **Important**: You must download directly from NVIDIA (licensing compliance)
 
-2. **Place driver in VM:**
+2. **Transfer driver to VM:**
    ```bash
-   # Create writable directory for drivers (bootc/rpm-ostree compatible)
-   sudo mkdir -p /var/lib/nvidia-drivers
+   # Via SCP
+   scp NVIDIA-Linux-x86_64-580.82.07.run ludos@<vm-ip>:~/
    
-   # For RPM package (recommended):
-   sudo cp nvidia-driver-*.rpm /var/lib/nvidia-drivers/
-   
-   # Or for RUN installer:
-   sudo cp NVIDIA-Linux-x86_64-*.run /var/lib/nvidia-drivers/
-   
-   # Alternative: Use /tmp if /var/lib is also read-only
-   # sudo cp nvidia-driver-*.rpm /tmp/
+   # Or via USB/ISO mount
+   sudo mount /dev/sr0 /mnt
+   cp /mnt/NVIDIA-Linux-x86_64-580.82.07.run ~/
    ```
 
-3. **Run installation script:**
-   - Select **Option 2: Tesla datacenter drivers**
-   - Script will automatically detect RPM or RUN format
-   - RPM packages are preferred for better Fedora integration
-   - No GRID licensing support (not needed for basic gaming)
+3. **Install Tesla drivers using LudOS management tool:**
+   ```bash
+   # Install Tesla drivers (replaces consumer drivers)
+   sudo ludos-tesla-setup install ~/NVIDIA-Linux-x86_64-580.82.07.run
+   
+   # This will:
+   # - Build Tesla kmod packages for bootc compatibility
+   # - Remove consumer drivers
+   # - Install Tesla drivers via rpm-ostree
+   # - Update driver status tracking
+   # - Prompt for reboot
+   ```
+
+4. **Reboot to activate Tesla drivers:**
+   ```bash
+   sudo systemctl reboot
+   ```
 
 ### Step 9: Verify Tesla Driver Installation
 
 ```bash
-# Verify NVIDIA driver is loaded
+# Check Tesla driver status using LudOS management tool
+ludos-tesla-setup status
+
+# This will show:
+# - Current driver type (Tesla vs Consumer)
+# - Tesla driver version
+# - GPU information
+# - Loaded kernel modules
+# - Installed packages
+
+# Verify NVIDIA SMI output
 nvidia-smi
 
 # Should show Tesla P4 information:
 # +-----------------------------------------------------------------------------+
-# | NVIDIA-SMI 535.xx.xx    Driver Version: 535.xx.xx    CUDA Version: 12.x  |
+# | NVIDIA-SMI 580.xx.xx    Driver Version: 580.xx.xx    CUDA Version: 12.x  |
 # |-------------------------------+----------------------+----------------------+
 # | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
 # | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
@@ -245,8 +261,8 @@ nvidia-smi
 # | N/A   xx°C    P8    xx W /  75W|      0MiB /  7680MiB |      0%      Default |
 # +-------------------------------+----------------------+----------------------+
 
-# Check kernel module loading
-lsmod | grep nvidia
+# Check Tesla-specific driver features
+nvidia-smi --query-gpu=name,driver_version,pci.bus_id --format=csv,noheader
 ```
 
 ### Step 10: Run LudOS Setup Script
@@ -262,21 +278,45 @@ sudo /etc/ludos/ludos-setup.sh
 # - Configure audio system for headless operation
 ```
 
-### Step 11: Reboot and Verify
+### Step 11: Configure NVIDIA GRID Licensing (Optional)
+
+For enterprise deployments with GRID licensing:
+
+```bash
+# Edit GRID configuration
+sudo nano /etc/nvidia/gridd.conf
+
+# Basic GRID configuration:
+# ServerAddress=<license-server-ip>
+# ServerPort=7070
+# FeatureType=1
+# EnableUI=TRUE
+
+# Start GRID daemon
+sudo systemctl enable nvidia-gridd
+sudo systemctl start nvidia-gridd
+
+# Check license status
+nvidia-smi -q | grep "License Status"
+```
+
+### Step 12: Reboot and Verify
 
 ```bash
 # Reboot to load NVIDIA drivers
 sudo reboot
 
 # After reboot, verify installation
+ludos-tesla-setup status  # Comprehensive status check
 nvidia-smi  # Should show Tesla P4
 systemctl status ludos-gamescope  # Should be active
 systemctl status sunshine  # Should be active
+systemctl status nvidia-gridd  # Should be active (if GRID configured)
 ```
 
 ## Part 4: Gaming Configuration
 
-### Step 12: Configure Sunshine Streaming
+### Step 13: Configure Sunshine Streaming
 
 1. **Access Sunshine Web Interface:**
    ```bash
@@ -290,7 +330,7 @@ systemctl status sunshine  # Should be active
    - Enable KMS capture for headless operation
    - Set up audio capture
 
-### Step 13: Configure Virtual Display
+### Step 14: Configure Virtual Display
 
 **Tesla Drivers with Gamescope Virtual Display:**
 ```bash
@@ -303,7 +343,7 @@ sudo systemctl status ludos-gamescope
 journalctl -u ludos-gamescope -f
 ```
 
-### Step 14: Install and Configure Games
+### Step 15: Install and Configure Games
 
 ```bash
 # Steam will start automatically with Gamescope
@@ -316,7 +356,7 @@ sudo -u ludos steam
 
 ## Part 5: Client Connection
 
-### Step 15: Connect with Moonlight
+### Step 16: Connect with Moonlight
 
 1. **Install Moonlight Client:**
    - Windows/Mac: Download from https://moonlight-stream.org/
@@ -331,29 +371,70 @@ sudo -u ludos steam
 
 ### Common Issues:
 
-1. **No GPU detected:**
+1. **Tesla Driver Installation Failed:**
+   ```bash
+   # Check Tesla driver build logs
+   sudo cat /etc/ludos/nvidia-kmod/build/BUILDROOT/*/var/log/*
+   
+   # Verify kernel headers are installed
+   rpm -qa | grep kernel-devel
+   
+   # Rebuild Tesla drivers manually
+   cd /etc/ludos/nvidia-kmod
+   sudo ./build-tesla-kmod.sh
+   
+   # Switch back to consumer drivers if needed
+   sudo ludos-tesla-setup remove
+   ```
+
+2. **Tesla Driver Status Check:**
+   ```bash
+   # Comprehensive driver status
+   ludos-tesla-setup status
+   
+   # Check which drivers are loaded
+   lsmod | grep nvidia
+   
+   # Verify Tesla driver version
+   nvidia-smi --query-gpu=driver_version --format=csv,noheader
+   ```
+
+3. **No GPU detected:**
    ```bash
    lspci | grep NVIDIA  # Verify GPU passthrough
    dmesg | grep nvidia  # Check driver loading
+   
+   # Check if Tesla drivers are properly installed
+   ludos-tesla-setup status
    ```
 
-2. **Gamescope virtual display issues:**
+4. **Gamescope virtual display issues:**
    ```bash
    systemctl status ludos-gamescope
    journalctl -u ludos-gamescope
    # Check DRM permissions and nvidia_drm.modeset=1
-   ```
-
-3. **No virtual display:**
-   ```bash
-   systemctl status ludos-gamescope
-   # Verify nvidia_drm.modeset=1 in kernel cmdline
-   cat /proc/cmdline | grep nvidia_drm.modeset
-   # Check Gamescope can access GPU
+   
+   # Verify Tesla drivers support DRM
    ls -la /dev/dri/
+   cat /proc/cmdline | grep nvidia_drm.modeset
    ```
 
-4. **Sunshine connection issues:**
+5. **GRID Licensing Issues:**
+   ```bash
+   # Check GRID daemon status
+   systemctl status nvidia-gridd
+   
+   # Verify license configuration
+   cat /etc/nvidia/gridd.conf
+   
+   # Check license status
+   nvidia-smi -q | grep "License Status"
+   
+   # Restart GRID daemon
+   sudo systemctl restart nvidia-gridd
+   ```
+
+6. **Sunshine connection issues:**
    ```bash
    systemctl status sunshine
    # Check firewall settings (ports 47989, 47990, 48010)
@@ -374,10 +455,36 @@ sudo -u ludos steam
    - Use dedicated network interface for streaming
    - Configure QoS for gaming traffic
 
+### Tesla Driver Management Commands:
+
+```bash
+# Check current driver status
+ludos-tesla-setup status
+
+# List available Tesla driver versions
+ludos-tesla-setup list-versions
+
+# Install Tesla drivers
+sudo ludos-tesla-setup install ~/NVIDIA-Linux-x86_64-580.82.07.run
+
+# Remove Tesla drivers (revert to consumer)
+sudo ludos-tesla-setup remove
+
+# Get help
+ludos-tesla-setup help
+```
+
 ## Support and Updates
 
 - **LudOS Updates:** Use `rpm-ostree upgrade` for system updates
-- **Driver Updates:** Re-run `/etc/ludos/nvidia-driver-install.sh`
+- **Tesla Driver Updates:** Download new version from NVIDIA and run `ludos-tesla-setup install`
+- **Consumer Driver Updates:** Use `rpm-ostree upgrade` for automatic updates
 - **Configuration Changes:** Modify files in `/etc/ludos/`
 
-For issues and support, refer to the LudOS troubleshooting documentation.
+### Quick Reference:
+- **Tesla Management:** `ludos-tesla-setup` command
+- **System Status:** `ludos-tesla-setup status`
+- **Service Status:** `systemctl status ludos-gamescope sunshine nvidia-gridd`
+- **Logs:** `journalctl -u sunshine -f` or `journalctl -u ludos-gamescope -f`
+
+For issues and support, refer to the LudOS troubleshooting documentation and GitHub issues.

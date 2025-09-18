@@ -69,6 +69,12 @@ dnf5 install -y \
     mesa-vulkan-drivers \
     xorg-x11-server-Xwayland
 
+### Enable RPM Fusion repositories (required for Steam, NVIDIA drivers, etc.)
+echo "Enabling RPM Fusion repositories..."
+dnf5 install -y \
+    https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+    https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+
 ### Install gaming and streaming components
 echo "Installing gaming components..."
 
@@ -76,30 +82,22 @@ echo "Installing gaming components..."
 echo "Installing Gamescope virtual display manager..."
 dnf5 install -y gamescope
 
-# Install Steam and gaming dependencies
+# Install Steam and gaming dependencies (requires RPM Fusion)
 echo "Installing Steam and gaming dependencies..."
 dnf5 install -y \
     steam \
     gamemode
 
 ### LudOS NVIDIA Driver Strategy:
-# 1. Install consumer kmod-nvidia by default (legally compliant)
-# 2. Provide Tesla/GRID kmod build tools for post-install use
-# 3. Users download and build Tesla drivers themselves (licensing compliant)
+# 1. Install minimal NVIDIA infrastructure only (no drivers)
+# 2. Provide Tesla/Consumer kmod build tools for post-install use
+# 3. Users choose driver type during post-install setup (efficient)
 
 echo "Installing NVIDIA driver infrastructure..."
 
-# Enable RPM Fusion repositories (required for kmod-nvidia)
-echo "Enabling RPM Fusion repositories..."
+# Install NVIDIA userspace components only (no kernel drivers yet)
+echo "Installing NVIDIA userspace infrastructure..."
 dnf5 install -y \
-    https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-    https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
-
-# Install consumer kmod-nvidia by default (bootc compatible, legally compliant)
-echo "Installing kmod-nvidia (consumer drivers) for bootc compatibility..."
-dnf5 install -y \
-    kmod-nvidia \
-    xorg-x11-drv-nvidia-cuda \
     nvidia-settings \
     libglvnd-glx \
     libglvnd-opengl \
@@ -118,7 +116,9 @@ dnf5 install -y \
     xz \
     kmodtool
 
-echo "CONSUMER_DRIVERS_INSTALLED=true" > /etc/ludos/nvidia-driver-status
+# Create driver status file (no drivers installed yet)
+echo "NO_DRIVERS_INSTALLED=true" > /etc/ludos/nvidia-driver-status
+echo "DRIVER_TYPE=none" >> /etc/ludos/nvidia-driver-status
 
 # Install Sunshine streaming server at build time (official LizardByte approach)
 echo "Installing Sunshine streaming server..."

@@ -16,20 +16,24 @@ USAGE:
     $SCRIPT_NAME <command> [options]
 
 COMMANDS:
-    install <driver_file>    Install Tesla datacenter drivers from .run file
-    remove                   Remove Tesla drivers and revert to consumer drivers
+    install-consumer         Install consumer NVIDIA drivers (gaming/GeForce)
+    install-tesla <file>     Install Tesla datacenter drivers from .run file
+    remove                   Remove current drivers
     status                   Show current driver status
     list-versions           List available Tesla driver versions
     help                    Show this help message
 
 EXAMPLES:
+    # Install consumer drivers (most users)
+    $SCRIPT_NAME install-consumer
+    
     # Install Tesla drivers from downloaded .run file
-    $SCRIPT_NAME install ~/Downloads/NVIDIA-Linux-x86_64-580.82.07.run
+    $SCRIPT_NAME install-tesla ~/Downloads/NVIDIA-Linux-x86_64-580.82.07.run
     
     # Check current driver status
     $SCRIPT_NAME status
     
-    # Remove Tesla drivers
+    # Remove current drivers
     $SCRIPT_NAME remove
 
 NOTES:
@@ -60,6 +64,34 @@ check_requirements() {
     fi
 }
 
+install_consumer_drivers() {
+    echo "=== Installing Consumer NVIDIA Drivers ==="
+    echo ""
+    echo "Installing consumer/gaming NVIDIA drivers (kmod-nvidia)..."
+    echo "These drivers work with GeForce GPUs and provide gaming compatibility."
+    echo ""
+    
+    # Install consumer drivers
+    echo "Installing consumer NVIDIA packages..."
+    rpm-ostree install \
+        kmod-nvidia \
+        xorg-x11-drv-nvidia-cuda
+    
+    # Update status
+    echo "CONSUMER_DRIVERS_INSTALLED=true" > /etc/ludos/nvidia-driver-status
+    echo "DRIVER_TYPE=consumer" >> /etc/ludos/nvidia-driver-status
+    
+    echo ""
+    echo "✅ Consumer NVIDIA drivers installed!"
+    echo "🔄 Reboot required to activate drivers"
+    echo ""
+    read -p "Reboot now? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        systemctl reboot
+    fi
+}
+
 show_status() {
     echo "=== LudOS NVIDIA Driver Status ==="
     echo ""
@@ -70,7 +102,7 @@ show_status() {
         cat /etc/ludos/nvidia-driver-status
         echo ""
     else
-        echo "Driver Status: Unknown"
+        echo "Driver Status: No drivers installed"
         echo ""
     fi
     
@@ -232,10 +264,14 @@ list_versions() {
 
 # Main command processing
 case "${1:-help}" in
-    "install")
+    "install-consumer")
+        check_requirements
+        install_consumer_drivers
+        ;;
+    "install-tesla")
         if [ $# -lt 2 ]; then
             echo "ERROR: Driver file required"
-            echo "Usage: $SCRIPT_NAME install <driver_file>"
+            echo "Usage: $SCRIPT_NAME install-tesla <driver_file>"
             exit 1
         fi
         check_requirements

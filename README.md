@@ -55,30 +55,51 @@ Deploy the QCOW2 image to your hypervisor with:
 
 ### Post-Installation Setup
 
-1. **Install NVIDIA drivers**:
+#### Quick Setup (Consumer Drivers)
+For basic gaming with consumer NVIDIA drivers:
+```bash
+# Run post-installation setup
+sudo /etc/ludos/ludos-setup.sh
+
+# Configure Sunshine at https://your-vm-ip:47990
+# Connect Moonlight clients to VM IP
+```
+
+#### Tesla Datacenter Drivers
+For enterprise Tesla GPU support:
+
+1. **Download Tesla drivers** from NVIDIA:
+   - Visit: https://www.nvidia.com/Download/index.aspx
+   - Select: Tesla / Linux 64-bit / [Version]
+   - Download: `NVIDIA-Linux-x86_64-VERSION.run`
+
+2. **Install Tesla drivers**:
    ```bash
-   # Download GRID vGPU drivers from NVIDIA Enterprise portal
-   # Place in /opt/nvidia-drivers/ and run:
-   sudo /etc/ludos/nvidia-driver-install.sh
+   # Transfer driver file to LudOS VM
+   scp NVIDIA-Linux-x86_64-580.82.07.run ludos@<vm-ip>:~/
+   
+   # Install Tesla drivers
+   sudo ludos-tesla-setup install ~/NVIDIA-Linux-x86_64-580.82.07.run
+   
+   # Reboot to activate
+   sudo systemctl reboot
    ```
 
-2. **Configure GRID licensing** (if using vGPU):
+3. **Complete setup**:
    ```bash
+   # Run post-installation configuration
+   sudo /etc/ludos/ludos-setup.sh
+   
+   # Configure GRID licensing (optional)
    sudo nano /etc/nvidia/gridd.conf
-   # Set ServerAddress and FeatureType
-   sudo systemctl restart nvidia-gridd
-   ```
-
-3. **Setup Sunshine streaming**:
-   ```bash
-   # Access web interface at https://your-vm-ip:47990
-   # Configure username, password, and applications
    ```
 
 4. **Connect clients**:
    - Install Moonlight on client devices
    - Add PC using LudOS VM IP address
    - Stream games remotely
+
+📖 **For detailed Tesla deployment instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**
 
 ## Architecture
 
@@ -134,6 +155,8 @@ For gaming with licensing support, use **GRID vGPU drivers**.
 
 ## Documentation
 
+- **[Deployment Guide](DEPLOYMENT_GUIDE.md)**: Complete Tesla driver deployment procedure
+- **[Tesla Quick Reference](TESLA_QUICK_REFERENCE.md)**: Essential Tesla commands and troubleshooting
 - **[Build Instructions](BUILD_INSTRUCTIONS.md)**: Detailed build and deployment guide
 - **[NVIDIA Setup Guide](build_files/nvidia-driver-install.sh)**: Driver installation procedures
 - **[Troubleshooting](BUILD_INSTRUCTIONS.md#troubleshooting)**: Common issues and solutions
