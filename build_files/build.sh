@@ -139,11 +139,15 @@ if dnf5 install -y Sunshine; then
     
     # Set up Sunshine capabilities for KMS capture
     if [ -f /usr/bin/sunshine ]; then
-        setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
+        /usr/sbin/setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
     fi
     
     # Disable sunshine service by default (will be enabled by setup script)
-    systemctl disable sunshine.service || true
+    if systemctl list-unit-files sunshine.service >/dev/null 2>&1; then
+        systemctl disable sunshine.service || true
+    else
+        echo "Note: sunshine.service will be configured during post-install setup"
+    fi
 else
     echo "Warning: Sunshine installation failed, will be handled in post-install setup"
 fi
@@ -168,11 +172,22 @@ cp /ctx/ludos-setup.sh /etc/ludos/
 cp /ctx/nvidia-driver-install.sh /etc/ludos/
 cp /ctx/ludos-sunshine-setup /usr/local/bin/
 cp /ctx/ludos-tesla-setup /usr/local/bin/
-cp -r /ctx/nvidia-kmod /etc/ludos/nvidia-kmod
+
+# Copy nvidia-kmod directory if it exists
+if [ -d /ctx/nvidia-kmod ]; then
+    cp -r /ctx/nvidia-kmod /etc/ludos/nvidia-kmod
+else
+    echo "Warning: nvidia-kmod directory not found in build context"
+    echo "Tesla driver build tools will not be available"
+fi
 chmod +x /etc/ludos/ludos-setup.sh
 chmod +x /etc/ludos/nvidia-driver-install.sh
 chmod +x /usr/local/bin/ludos-sunshine-setup
 chmod +x /usr/local/bin/ludos-tesla-setup
-chmod +x /etc/ludos/nvidia-kmod/build-tesla-kmod.sh
+
+# Make Tesla build script executable if it exists
+if [ -f /etc/ludos/nvidia-kmod/build-tesla-kmod.sh ]; then
+    chmod +x /etc/ludos/nvidia-kmod/build-tesla-kmod.sh
+fi
 
 echo "LudOS build process completed successfully!"
