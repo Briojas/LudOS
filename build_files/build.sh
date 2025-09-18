@@ -116,6 +116,9 @@ dnf5 install -y \
     xz \
     kmodtool
 
+# Create LudOS configuration directory early
+mkdir -p /etc/ludos
+
 # Create driver status file (no drivers installed yet)
 echo "NO_DRIVERS_INSTALLED=true" > /etc/ludos/nvidia-driver-status
 echo "DRIVER_TYPE=none" >> /etc/ludos/nvidia-driver-status
@@ -159,8 +162,7 @@ systemctl enable podman.socket
 systemctl enable nvidia-gridd.service || echo "Warning: nvidia-gridd service not found (will be available after driver installation)"
 # Note: sunshine.service will be enabled during ludos-setup.sh after Sunshine installation
 
-### Create LudOS configuration directory and copy setup files
-mkdir -p /etc/ludos
+### Copy LudOS setup files (directory already created above)
 cp /ctx/nvidia-gridd.conf.template /etc/ludos/
 cp /ctx/ludos-setup.sh /etc/ludos/
 cp /ctx/nvidia-driver-install.sh /etc/ludos/
