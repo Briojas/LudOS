@@ -204,6 +204,11 @@ sudo /etc/ludos/ludos-setup.sh
    - Visit: https://www.nvidia.com/Download/index.aspx
    - Select: **Tesla** / **Linux 64-bit** / [Version]
    - Download: `NVIDIA-Linux-x86_64-VERSION.run`
+   - Or, use curl command to download driver: 
+   ```bash
+   curl -fSsl -O https://us.download.nvidia.com/tesla/<VERSION>/NVIDIA-Linux-x86_64-<VERSION>.run
+   ```
+   - Replace `<VERSION>` with the version number desired (ex: `580.82.07`)
    - **Important**: You must download directly from NVIDIA (licensing compliance)
 
 2. **Transfer driver to VM:**
@@ -219,7 +224,7 @@ sudo /etc/ludos/ludos-setup.sh
 3. **Install Tesla drivers using LudOS management tool:**
    ```bash
    # Install Tesla drivers (replaces consumer drivers)
-   sudo ludos-tesla-setup install ~/NVIDIA-Linux-x86_64-580.82.07.run
+   sudo ludos-tesla-setup install-tesla ~/NVIDIA-Linux-x86_64-<VERSION>.run
    
    # This will:
    # - Build Tesla kmod packages for bootc compatibility

@@ -26,34 +26,34 @@ fi
 echo "Setting up build environment..."
 mkdir -p "$BUILD_DIR"/{BUILD,BUILDROOT,RPMS,SRPMS,SOURCES,SPECS}
 
-# Install build dependencies
-echo "Installing build dependencies..."
-if command -v rpm-ostree >/dev/null 2>&1; then
-    echo "Installing dependencies via rpm-ostree..."
-    rpm-ostree install --apply-live \
-        rpm-build \
-        kernel-devel \
-        kernel-headers \
-        gcc \
-        make \
-        wget \
-        curl \
-        xz || {
-        echo "Failed to install dependencies via rpm-ostree"
-        echo "You may need to reboot and try again"
-        exit 1
-    }
+# Check build dependencies (should already be installed)
+echo "Checking build dependencies..."
+MISSING_DEPS=()
+
+# Check for required packages
+for pkg in rpm-build kernel-devel kernel-headers gcc make wget curl xz kmodtool; do
+    if ! rpm -q $pkg >/dev/null 2>&1; then
+        MISSING_DEPS+=("$pkg")
+    fi
+done
+
+if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
+    echo "Missing dependencies: ${MISSING_DEPS[*]}"
+    echo "Installing missing dependencies..."
+    
+    if command -v rpm-ostree >/dev/null 2>&1; then
+        echo "Installing via rpm-ostree..."
+        rpm-ostree install --apply-live "${MISSING_DEPS[@]}" || {
+            echo "Failed to install dependencies via rpm-ostree"
+            echo "You may need to reboot and try again"
+            exit 1
+        }
+    else
+        echo "Installing via dnf..."
+        dnf install -y "${MISSING_DEPS[@]}"
+    fi
 else
-    echo "Installing dependencies via dnf..."
-    dnf install -y \
-        rpm-build \
-        kernel-devel \
-        kernel-headers \
-        gcc \
-        make \
-        wget \
-        curl \
-        xz
+    echo "All build dependencies are already installed"
 fi
 
 # Copy spec files and patches

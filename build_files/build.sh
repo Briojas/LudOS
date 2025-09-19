@@ -37,6 +37,7 @@ echo 'GRUB_CMDLINE_LINUX_DEFAULT="audit=0 quiet loglevel=3 systemd.show_status=0
 # Disable problematic services at build time
 systemctl mask systemd-remount-fs.service || true
 systemctl mask plymouth-start.service || true
+systemctl mask akmods-keygen@akmods-keygen.service || true
 
 # Fix filesystem mount issues that cause systemd-remount-fs.service to fail
 echo "Configuring filesystem fixes..."

@@ -206,6 +206,13 @@ install_tesla_drivers() {
     else
         echo "ERROR: Tesla kmod build failed"
         echo "Check logs in $NVIDIA_KMOD_DIR/build/"
+        echo ""
+        echo "Common solutions:"
+        echo "1. Reboot and try again (rpm-ostree may need restart)"
+        echo "2. Check if all dependencies are properly installed"
+        echo "3. Verify Tesla driver file is valid"
+        echo "4. Try installing consumer drivers instead:"
+        echo "   sudo ludos-tesla-setup install-consumer"
         exit 1
     fi
 }
