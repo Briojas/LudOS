@@ -112,7 +112,7 @@ dnf5 install -y \
     kernel-headers \
     gcc \
     make \
-    wget \
+    wget2-wget \
     curl \
     xz \
     kmodtool

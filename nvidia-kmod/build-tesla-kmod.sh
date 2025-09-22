@@ -28,33 +28,49 @@ mkdir -p "$BUILD_DIR"/{BUILD,BUILDROOT,RPMS,SRPMS,SOURCES,SPECS}
 
 # Check build dependencies (should already be installed)
 echo "Checking build dependencies..."
-MISSING_DEPS=()
 
-# Check for required packages
-for pkg in rpm-build kernel-devel kernel-headers gcc make wget curl xz kmodtool; do
-    if ! rpm -q $pkg >/dev/null 2>&1; then
-        MISSING_DEPS+=("$pkg")
+# Check for essential commands first
+echo "Verifying essential build tools..."
+ESSENTIAL_MISSING=()
+
+for cmd in gcc make curl; do
+    if ! command -v $cmd >/dev/null 2>&1; then
+        ESSENTIAL_MISSING+=("$cmd")
     fi
 done
 
-if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
-    echo "Missing dependencies: ${MISSING_DEPS[*]}"
-    echo "Installing missing dependencies..."
-    
-    if command -v rpm-ostree >/dev/null 2>&1; then
-        echo "Installing via rpm-ostree..."
-        rpm-ostree install --apply-live "${MISSING_DEPS[@]}" || {
-            echo "Failed to install dependencies via rpm-ostree"
-            echo "You may need to reboot and try again"
-            exit 1
-        }
-    else
-        echo "Installing via dnf..."
-        dnf install -y "${MISSING_DEPS[@]}"
-    fi
-else
-    echo "All build dependencies are already installed"
+if [ ${#ESSENTIAL_MISSING[@]} -gt 0 ]; then
+    echo "ERROR: Essential build tools missing: ${ESSENTIAL_MISSING[*]}"
+    echo "This indicates a serious system configuration issue"
+    exit 1
 fi
+
+# Check for kernel development packages (these are the most likely to be missing)
+KERNEL_MISSING=()
+if ! rpm -q kernel-devel >/dev/null 2>&1; then
+    KERNEL_MISSING+=("kernel-devel")
+fi
+if ! rpm -q kernel-headers >/dev/null 2>&1; then
+    KERNEL_MISSING+=("kernel-headers")
+fi
+
+# Install only kernel packages if missing (avoid rpm-ostree conflicts)
+if [ ${#KERNEL_MISSING[@]} -gt 0 ]; then
+    echo "Missing kernel development packages: ${KERNEL_MISSING[*]}"
+    echo "Installing via rpm-ostree..."
+    rpm-ostree install --apply-live "${KERNEL_MISSING[@]}" || {
+        echo "Failed to install kernel packages"
+        echo "You may need to reboot and try again"
+        exit 1
+    }
+fi
+
+# Check wget availability (informational only - spec file has curl fallback)
+if ! command -v wget >/dev/null 2>&1; then
+    echo "Note: wget command not available (using curl fallback in build)"
+fi
+
+echo "All required build dependencies are available"
 
 # Copy spec files and patches
 echo "Copying spec files and patches..."
