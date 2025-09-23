@@ -120,12 +120,12 @@ echo "Set nvidia to modeset=1 for Tesla drivers"
 %patch -P0 -p1
 %endif
 
-# Apply LudOS Tesla optimizations
+# Apply LudOS Tesla optimizations (optional)
 %if 0%{?_without_ludos_optimizations:1}
 echo "Skipping LudOS Tesla optimizations"
 %else
 echo "Applying LudOS Tesla optimizations"
-%patch -P1 -p1 || echo "LudOS optimization patch not found, continuing..."
+%patch -P1 -p1
 %endif
 
 for kernel_version  in %{?kernel_versions} ; do
