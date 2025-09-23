@@ -109,8 +109,23 @@ echo "Found Tesla driver: $TESLA_FILE"
 # Extract and create tarball
 echo "Extracting Tesla driver..."
 cd "$BUILD_DIR/SOURCES"
-mkdir -p "nvidia-tesla-driver-$TESLA_VERSION"
-sh "NVIDIA-Linux-x86_64-$TESLA_VERSION.run" --extract-only --target "nvidia-tesla-driver-$TESLA_VERSION/"
+
+# Clean up any previous extraction attempts
+if [ -d "nvidia-tesla-driver-$TESLA_VERSION" ]; then
+    echo "Removing previous extraction directory..."
+    rm -rf "nvidia-tesla-driver-$TESLA_VERSION"
+fi
+
+# Extract Tesla driver
+echo "Running NVIDIA installer extraction..."
+if sh "NVIDIA-Linux-x86_64-$TESLA_VERSION.run" --extract-only --target "nvidia-tesla-driver-$TESLA_VERSION/" 2>&1 | tee "$BUILD_DIR/extraction.log"; then
+    echo "Tesla driver extracted successfully"
+else
+    echo "ERROR: Failed to extract Tesla driver"
+    echo "Extraction log saved to: $BUILD_DIR/extraction.log"
+    cat "$BUILD_DIR/extraction.log"
+    exit 1
+fi
 
 echo "Creating Tesla driver tarball..."
 tar -cJf "nvidia-tesla-driver-$TESLA_VERSION.tar.xz" "nvidia-tesla-driver-$TESLA_VERSION/"
@@ -126,19 +141,26 @@ echo "Kernel base: $KERNEL_BASE"
 echo "Kernel release: $KERNEL_RELEASE"
 echo "Kernel dist: $KERNEL_DIST"
 
-# Build RPM package
-echo "Building Tesla kmod RPM package..."
-cd "$BUILD_DIR"
+# Build the RPM
+echo "Building Tesla kmod RPM..."
+echo "Using kernel version: $KERNEL_VERSION"
+echo "Build log will be saved to: $BUILD_DIR/build.log"
 
-rpmbuild \
-    --define "%_topdir $(pwd)" \
-    --define "debug_package %{nil}" \
-    --define "kernel $KERNEL_BASE" \
-    --define "kernel_release $KERNEL_RELEASE" \
-    --define "kernel_dist $KERNEL_DIST" \
-    --define "driver $TESLA_VERSION" \
-    --define "epoch 1" \
-    -v -bb SPECS/nvidia-tesla-kmod.spec
+if rpmbuild --define "_topdir $BUILD_DIR" \
+         --define "version $TESLA_VERSION" \
+         --define "kernel_version $KERNEL_VERSION" \
+         --define "kernel_release $KERNEL_RELEASE" \
+         --define "kernel_base $KERNEL_BASE" \
+         --define "kernel_dist $KERNEL_DIST" \
+         -bb "$BUILD_DIR/SPECS/nvidia-tesla-kmod.spec" 2>&1 | tee "$BUILD_DIR/build.log"; then
+    echo "RPM build completed successfully"
+else
+    echo "ERROR: RPM build failed"
+    echo "Build log saved to: $BUILD_DIR/build.log"
+    echo "Last 20 lines of build log:"
+    tail -20 "$BUILD_DIR/build.log"
+    exit 1
+fi
 
 # Check build results
 if [ -d "RPMS" ] && [ "$(find RPMS -name '*.rpm' | wc -l)" -gt 0 ]; then

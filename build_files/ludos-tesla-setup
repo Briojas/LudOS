@@ -126,6 +126,14 @@ show_status() {
     rpm -qa | grep -i nvidia | sort || echo "No NVIDIA packages found"
 }
 
+cleanup_build_directory() {
+    echo "Cleaning up previous build attempts..."
+    if [ -d "$NVIDIA_KMOD_DIR/build" ]; then
+        rm -rf "$NVIDIA_KMOD_DIR/build"/*
+        echo "Build directory cleaned"
+    fi
+}
+
 install_tesla_drivers() {
     local driver_file="$1"
     
@@ -159,6 +167,11 @@ install_tesla_drivers() {
     
     # Copy driver to build directory
     echo "Preparing Tesla driver build..."
+    
+    # Clean up any previous build attempts
+    cleanup_build_directory
+    
+    # Copy driver to build directory
     mkdir -p "$NVIDIA_KMOD_DIR/build/SOURCES"
     cp "$driver_file" "$NVIDIA_KMOD_DIR/build/SOURCES/"
     
@@ -205,7 +218,13 @@ install_tesla_drivers() {
         fi
     else
         echo "ERROR: Tesla kmod build failed"
-        echo "Check logs in $NVIDIA_KMOD_DIR/build/"
+        echo ""
+        echo "Build logs available at:"
+        echo "- Extraction log: $NVIDIA_KMOD_DIR/build/extraction.log"
+        echo "- Build log: $NVIDIA_KMOD_DIR/build/build.log"
+        echo ""
+        echo "To view logs:"
+        echo "sudo cat $NVIDIA_KMOD_DIR/build/build.log | tail -20"
         echo ""
         echo "Common solutions:"
         echo "1. Reboot and try again (rpm-ostree may need restart)"
