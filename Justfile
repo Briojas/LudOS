@@ -32,17 +32,83 @@ fix:
     echo "Checking syntax: Justfile"
     just --unstable --fmt -f Justfile || { exit 1; }
 
-# Clean Repo
+# Clean Repo and System Resources
 [group('Utility')]
 clean:
     #!/usr/bin/bash
     set -eoux pipefail
+    
+    echo "🧹 Starting comprehensive cleanup..."
+    
+    # Clean LudOS build artifacts
+    echo "Cleaning LudOS build artifacts..."
     touch _build
     find . -name "*_build*" -type d -exec rm -rf {} + 2>/dev/null || true
     rm -f previous.manifest.json
     rm -f changelog.md
     rm -f output.env
     rm -rf output/
+    
+    # Clean troubleshooting files
+    echo "Cleaning troubleshooting files..."
+    rm -rf troubleshooting/logs/* 2>/dev/null || true
+    rm -rf troubleshooting/screenshots/* 2>/dev/null || true
+    rm -rf troubleshooting/dumps/* 2>/dev/null || true
+    
+    # Clean NVIDIA build artifacts
+    echo "Cleaning NVIDIA build artifacts..."
+    rm -rf nvidia-kmod/build/* 2>/dev/null || true
+    rm -f nvidia-kmod/*.run 2>/dev/null || true
+    rm -f nvidia-kmod/*.rpm 2>/dev/null || true
+    rm -f nvidia-kmod/*.tar.xz 2>/dev/null || true
+    
+    # Clean container storage (most important for disk space)
+    echo "Cleaning container storage..."
+    podman system prune -a -f --volumes 2>/dev/null || true
+    buildah rm --all 2>/dev/null || true
+    podman image prune -a -f 2>/dev/null || true
+    
+    # Clean system package cache
+    echo "Cleaning system package cache..."
+    sudo dnf clean all 2>/dev/null || true
+    
+    # Clean journal logs (keep last 3 days)
+    echo "Cleaning journal logs..."
+    sudo journalctl --vacuum-time=3d 2>/dev/null || true
+    
+    # Clean temporary files
+    echo "Cleaning temporary files..."
+    rm -rf /tmp/_build* 2>/dev/null || true
+    rm -rf /tmp/tmp.* 2>/dev/null || true
+    
+    # Show disk usage after cleanup
+    echo "🎉 Cleanup complete!"
+    echo "Current disk usage:"
+    df -h / | grep -E "(Filesystem|/dev/)"
+
+# Check disk space and warn if low
+[group('Utility')]
+check-space:
+    #!/usr/bin/bash
+    set -euo pipefail
+    
+    echo "💾 Checking disk space..."
+    df -h / | grep -E "(Filesystem|/dev/)"
+    
+    # Get usage percentage (remove % sign)
+    usage=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
+    
+    if [ "$usage" -gt 85 ]; then
+        echo "⚠️  WARNING: Disk usage is ${usage}% - consider running 'just clean'"
+        echo "   Container builds need 15-20GB free space"
+        if [ "$usage" -gt 90 ]; then
+            echo "❌ ERROR: Disk usage too high (${usage}%) - build will likely fail"
+            echo "   Run 'just clean' before building"
+            exit 1
+        fi
+    else
+        echo "✅ Disk space OK (${usage}% used)"
+    fi
 
 # Sudo Clean Repo
 [group('Utility')]
@@ -256,27 +322,27 @@ set-version version:
 
 # Build a QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
-build-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "qcow2" "disk_config/disk.toml")
+build-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: check-space && (_build-bib target_image tag "qcow2" "disk_config/disk.toml")
 
 # Build a RAW virtual machine image
 [group('Build Virtal Machine Image')]
-build-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "raw" "disk_config/disk.toml")
+build-raw $target_image=("localhost/" + image_name) $tag=default_tag: check-space && (_build-bib target_image tag "raw" "disk_config/disk.toml")
 
 # Build an ISO virtual machine image
 [group('Build Virtal Machine Image')]
-build-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "iso" "disk_config/iso.toml")
+build-iso $target_image=("localhost/" + image_name) $tag=default_tag: check-space && (_build-bib target_image tag "iso" "disk_config/iso.toml")
 
 # Rebuild a QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "qcow2" "disk_config/disk.toml")
+rebuild-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: check-space && (_rebuild-bib target_image tag "qcow2" "disk_config/disk.toml")
 
 # Rebuild a RAW virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "raw" "disk_config/disk.toml")
+rebuild-raw $target_image=("localhost/" + image_name) $tag=default_tag: check-space && (_rebuild-bib target_image tag "raw" "disk_config/disk.toml")
 
 # Rebuild an ISO virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "iso" "disk_config/iso.toml")
+rebuild-iso $target_image=("localhost/" + image_name) $tag=default_tag: check-space && (_rebuild-bib target_image tag "iso" "disk_config/iso.toml")
 
 # Run a virtual machine with the specified image type and configuration
 _run-vm $target_image $tag $type $config:
