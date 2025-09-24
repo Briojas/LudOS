@@ -30,12 +30,13 @@ Source101:     nvidia-kmod-noopen-pciids.txt
 
 ExclusiveArch:  x86_64
 
-# get the needed BuildRequires (in parts depending on what we build for)
-%global AkmodsBuildRequires %{_bindir}/kmodtool, nvidia-tesla-kmodsrc = %{epoch}:%{version}
-BuildRequires:  %{AkmodsBuildRequires}
-BuildRequires:  wget, curl
-
-%{!?kernels:BuildRequires: gcc, elfutils-libelf-devel, buildsys-build-rpmfusion-kerneldevpkgs-%{?buildforkernels:%{buildforkernels}}%{!?buildforkernels:current}-%{_target_cpu} }
+# LudOS Tesla kmod build requirements (simplified for bootc)
+BuildRequires:  %{_bindir}/kmodtool
+BuildRequires:  wget2-wget, curl
+BuildRequires:  gcc, make
+BuildRequires:  kernel-devel, kernel-headers
+BuildRequires:  elfutils-libelf-devel
+BuildRequires:  rpm-build
 
 # kmodtool does its magic here
 %{expand:%(kmodtool --target %{_target_cpu} --repo ludos --kmodname %{name} --filterfile %{SOURCE11} --obsolete-name nvidia-newest --obsolete-version "%{?epoch}:%{version}-%{release}" %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
@@ -59,30 +60,9 @@ kmodtool  --target %{_target_cpu}  --repo ludos --kmodname %{name} --filterfile 
 
 %setup -T -c
 
-# Download Tesla driver if not already present
-if [ ! -f "%{SOURCE0}" ]; then
-    echo "Downloading Tesla driver %{version}..."
-    TESLA_URL="http://us.download.nvidia.com/tesla/%{version}/NVIDIA-Linux-x86_64-%{version}.run"
-    
-    # Download Tesla driver
-    wget -O "NVIDIA-Linux-x86_64-%{version}.run" "$TESLA_URL" || \
-    curl -o "NVIDIA-Linux-x86_64-%{version}.run" "$TESLA_URL" || {
-        echo "ERROR: Failed to download Tesla driver from $TESLA_URL"
-        echo "Please manually download and place in SOURCES/ directory"
-        exit 1
-    }
-    
-    # Extract Tesla driver
-    echo "Extracting Tesla driver..."
-    mkdir nvidia-tesla-driver-%{version}
-    sh "NVIDIA-Linux-x86_64-%{version}.run" --extract-only --target nvidia-tesla-driver-%{version}/
-    
-    # Create tarball
-    tar -cJf "%{SOURCE0}" nvidia-tesla-driver-%{version}/
-fi
-
-# Extract from tarball
-tar --use-compress-program xz -xf %{SOURCE0}
+# Use pre-extracted Tesla driver tarball
+echo "Extracting Tesla driver tarball..."
+tar -xJf %{SOURCE0}
 cd nvidia-tesla-driver-%{version}
 
 # Move kernel directory to expected location
@@ -165,9 +145,10 @@ done
 %{?akmod_install}
 
 %changelog
-* Wed Sep 18 2025 LudOS Project <ludos@example.com> - 1:580.82.07-1.ludos
+* Wed Sep 18 2024 LudOS Project <ludos@example.com> - 1:580.82.07-1.ludos
 - Initial Tesla datacenter driver package for LudOS
 - Based on RPM Fusion nvidia-kmod with Tesla driver sources
+- Optimized for headless gaming and bootc compatibility
 - Added LudOS-specific optimizations for headless gaming
 - Supports Tesla P4, P40, V100, and other datacenter GPUs
 - Automatic Tesla driver download during build process
