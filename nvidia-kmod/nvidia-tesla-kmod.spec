@@ -41,10 +41,17 @@ BuildRequires:  rpm-build
 # kmodtool does its magic here
 %{expand:%(kmodtool --target %{_target_cpu} --repo ludos --kmodname %{name} --filterfile %{SOURCE11} --obsolete-name nvidia-newest --obsolete-version "%{?epoch}:%{version}-%{release}" %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
-# Tesla-specific provides/requires
-Provides:      nvidia-tesla-kmod = %{epoch}:%{version}-%{release}
-Provides:      nvidia-kmod = %{epoch}:%{version}-%{release}
-Conflicts:     kmod-nvidia, akmod-nvidia
+# Common package for Tesla drivers (required by akmod)
+%package common
+Summary: Common files for NVIDIA Tesla drivers
+Provides: nvidia-tesla-kmod-common = %{epoch}:%{version}-%{release}
+
+%description common
+Common files and configuration for NVIDIA Tesla datacenter drivers.
+
+%files common
+%defattr(-,root,root,-)
+# Empty package - all files are in the kernel modules
 
 %description
 The NVIDIA Tesla %{version} datacenter driver kernel module for kernel %{kversion}.

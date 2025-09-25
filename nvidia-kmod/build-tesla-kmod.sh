@@ -163,17 +163,18 @@ else
 fi
 
 # Check build results
-if [ -d "RPMS" ] && [ "$(find RPMS -name '*.rpm' | wc -l)" -gt 0 ]; then
+RPM_DIR="$BUILD_DIR/RPMS"
+if [ -d "$RPM_DIR" ] && [ "$(find "$RPM_DIR" -name '*.rpm' | wc -l)" -gt 0 ]; then
     echo ""
     echo "=== Build Successful! ==="
     echo "Tesla kmod packages built:"
-    find RPMS -name '*.rpm' -exec basename {} \;
+    find "$RPM_DIR" -name '*.rpm' -exec basename {} \;
     echo ""
     echo "Installation command:"
-    echo "sudo rpm-ostree install $(find RPMS -name '*.rpm' | head -1)"
+    echo "sudo rpm-ostree install $(find "$RPM_DIR" -name '*.rpm' | head -1)"
     echo ""
     echo "Or for traditional systems:"
-    echo "sudo dnf install $(find RPMS -name '*.rpm' | head -1)"
+    echo "sudo dnf install $(find "$RPM_DIR" -name '*.rpm' | head -1)"
 else
     echo ""
     echo "=== Build Failed! ==="
