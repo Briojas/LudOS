@@ -115,7 +115,8 @@ dnf5 install -y \
     wget2-wget \
     curl \
     xz \
-    kmodtool
+    kmodtool \
+    pciutils
 
 # Create LudOS configuration directory early
 mkdir -p /etc/ludos

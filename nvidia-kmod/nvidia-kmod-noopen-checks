@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0
 #
 # nvidia-kmod-noopen-checks - Checks for Nvidia cards not supporting kernel-open
+# Modified for LudOS Tesla drivers - always use proprietary modules
 #
 
 # File containing the target PCI IDs
@@ -12,7 +13,13 @@ PCIIDS_FILE="${1:-nvidia-kmod-noopen-pciids.txt}"
 TARGET_PCIIDS=($(cat "$PCIIDS_FILE"))
 
 # Get the PCI IDs of the graphics controllers present on the system
-SYSTEM_PCIIDS=($(lspci -nn | grep -E 'VGA compatible controller|3D controller' | grep -oP '\[\K[0-9a-fA-F:]+\b'))
+# Handle case where lspci is not available or no GPU is present
+if command -v lspci >/dev/null 2>&1; then
+    SYSTEM_PCIIDS=($(lspci -nn | grep -E 'VGA compatible controller|3D controller' | grep -oP '\[\K[0-9a-fA-F:]+\b' 2>/dev/null || true))
+else
+    echo "Warning: lspci not available, assuming Tesla GPU present"
+    SYSTEM_PCIIDS=()
+fi
 
 # Check for the presence of target PCI IDs in the system PCI IDs
 for PCIID in "${TARGET_PCIIDS[@]}"; do
@@ -23,8 +30,10 @@ for PCIID in "${TARGET_PCIIDS[@]}"; do
     fi
 done
 
-echo "No matching graphics card found."
-echo "Using nvidia-open"
-mv kernel kernel-closed
-mv kernel-open kernel
+# For Tesla drivers, always use proprietary modules (no kernel-open support)
+echo "Tesla driver detected or no GPU found - using proprietary modules"
+echo "Not using nvidia-open"
+
+# Tesla drivers only have 'kernel' directory, no 'kernel-open'
+# No need to move directories for Tesla drivers
 
