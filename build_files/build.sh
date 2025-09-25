@@ -90,16 +90,16 @@ dnf5 install -y \
     gamemode
 
 ### LudOS NVIDIA Driver Strategy:
-# 1. Install minimal NVIDIA infrastructure only (no drivers)
-# 2. Provide Tesla/Consumer kmod build tools for post-install use
-# 3. Users choose driver type during post-install setup (efficient)
+# 1. Install minimal OpenGL infrastructure only (no NVIDIA drivers)
+# 2. Provide Tesla kmod build tools for post-install use
+# 3. Tesla drivers installed via ludos-tesla-setup during deployment
+# 4. Focus on datacenter/Tesla GPUs for headless gaming
 
-echo "Installing NVIDIA driver infrastructure..."
+echo "Installing graphics infrastructure..."
 
-# Install NVIDIA userspace components only (no kernel drivers yet)
-echo "Installing NVIDIA userspace infrastructure..."
+# Install OpenGL libraries only (Tesla drivers will provide NVIDIA components)
+echo "Installing OpenGL infrastructure..."
 dnf5 install -y \
-    nvidia-settings \
     libglvnd-glx \
     libglvnd-opengl \
     libglvnd-devel
