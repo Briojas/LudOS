@@ -21,18 +21,17 @@ dnf5 install -y \
     gcc \
     make
 
-# Configure kernel parameters for bootc systems
-echo "Configuring kernel parameters to fix boot issues..."
+# Configure kernel parameters for bootc systems (minimal approach)
+echo "Configuring kernel parameters..."
 
-# Create kernel cmdline with comprehensive boot fixes
+# Add NVIDIA-specific kernel parameters only
+# Don't override the entire kernel command line for bootc systems
 mkdir -p /etc/kernel
-cat > /etc/kernel/cmdline << 'EOF'
-audit=0 quiet loglevel=3 systemd.show_status=0 rd.systemd.show_status=0 plymouth.enable=0 systemd.mask=systemd-remount-fs.service rw
-EOF
+echo "nvidia_drm.modeset=1" > /etc/kernel/cmdline
 
-# Also configure traditional GRUB as fallback
+# Configure GRUB for traditional systems as fallback
 mkdir -p /etc/default
-echo 'GRUB_CMDLINE_LINUX_DEFAULT="audit=0 quiet loglevel=3 systemd.show_status=0 rd.systemd.show_status=0 plymouth.enable=0 systemd.mask=systemd-remount-fs.service rw"' >> /etc/default/grub
+echo 'GRUB_CMDLINE_LINUX_DEFAULT="nvidia_drm.modeset=1"' >> /etc/default/grub
 
 # Disable problematic services at build time
 systemctl mask systemd-remount-fs.service || true
@@ -158,9 +157,8 @@ fi
 echo "Setting up NVIDIA GRID licensing..."
 mkdir -p /etc/nvidia
 
-### Configure kernel parameters for NVIDIA and Gamescope
-echo "Configuring kernel parameters..."
-echo "nvidia_drm.modeset=1" >> /etc/kernel/cmdline
+### Kernel parameters already configured above
+# nvidia_drm.modeset=1 already set in /etc/kernel/cmdline
 
 ### Enable required services
 echo "Enabling system services..."
