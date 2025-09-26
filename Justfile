@@ -86,6 +86,56 @@ clean:
     echo "Current disk usage:"
     df -h / | grep -E "(Filesystem|/dev/)"
 
+# Aggressive cleanup for low disk space situations
+[group('Utility')]
+deep-clean:
+    #!/usr/bin/bash
+    set -eoux pipefail
+    
+    echo "🔥 Starting DEEP cleanup (aggressive)..."
+    
+    # Run standard cleanup first
+    just clean
+    
+    # Clean RPM ostree cache and old deployments
+    echo "Cleaning rpm-ostree cache and old deployments..."
+    sudo rpm-ostree cleanup -m 2>/dev/null || true
+    
+    # Clean all container images (not just unused ones)
+    echo "Removing ALL container images..."
+    podman rmi -a -f 2>/dev/null || true
+    buildah rmi -a -f 2>/dev/null || true
+    
+    # Clean more system caches
+    echo "Cleaning additional system caches..."
+    sudo dnf clean all 2>/dev/null || true
+    rm -rf ~/.cache/* 2>/dev/null || true
+    sudo rm -rf /var/cache/dnf/* 2>/dev/null || true
+    sudo rm -rf /var/cache/PackageKit/* 2>/dev/null || true
+    
+    # Clean journal logs more aggressively (keep last 1 day)
+    echo "Cleaning journal logs (keep 1 day)..."
+    sudo journalctl --vacuum-time=1d 2>/dev/null || true
+    sudo journalctl --vacuum-size=100M 2>/dev/null || true
+    
+    # Clean coredumps
+    echo "Cleaning coredumps..."
+    sudo rm -rf /var/lib/systemd/coredump/* 2>/dev/null || true
+    
+    # Clean old kernels (keep current + 1)
+    echo "Cleaning old kernels..."
+    sudo dnf remove $(dnf repoquery --installonly --latest-limit=-2 -q) -y 2>/dev/null || true
+    
+    # Clean user temp files
+    echo "Cleaning user temporary files..."
+    rm -rf ~/.local/share/Trash/* 2>/dev/null || true
+    rm -rf /tmp/* 2>/dev/null || true
+    rm -rf /var/tmp/* 2>/dev/null || true
+    
+    echo "🔥 Deep cleanup complete!"
+    echo "Final disk usage:"
+    df -h / | grep -E "(Filesystem|/dev/)"
+
 # Check disk space and warn if low
 [group('Utility')]
 check-space:
