@@ -75,6 +75,7 @@ echo "All required build dependencies are available"
 # Copy spec files and patches
 echo "Copying spec files and patches..."
 cp "$SCRIPT_DIR/nvidia-tesla-kmod.spec" "$BUILD_DIR/SPECS/"
+cp "$SCRIPT_DIR/nvidia-tesla-utils.spec" "$BUILD_DIR/SPECS/"
 cp "$SCRIPT_DIR/nvidia-kmodtool-excludekernel-filterfile" "$BUILD_DIR/SOURCES/"
 cp "$SCRIPT_DIR/make_modeset_default.patch" "$BUILD_DIR/SOURCES/"
 cp "$SCRIPT_DIR/ludos-tesla-optimizations.patch" "$BUILD_DIR/SOURCES/"
@@ -162,6 +163,21 @@ else
     exit 1
 fi
 
+echo "Building Tesla user-space utilities RPM..."
+echo "Utilities build log will be saved to: $BUILD_DIR/utils-build.log"
+
+if rpmbuild --define "_topdir $BUILD_DIR" \
+         --define "version $TESLA_VERSION" \
+         -bb "$BUILD_DIR/SPECS/nvidia-tesla-utils.spec" 2>&1 | tee "$BUILD_DIR/utils-build.log"; then
+    echo "Tesla utilities RPM build completed successfully"
+else
+    echo "ERROR: Tesla utilities RPM build failed"
+    echo "Utilities build log saved to: $BUILD_DIR/utils-build.log"
+    echo "Last 20 lines of utilities build log:"
+    tail -20 "$BUILD_DIR/utils-build.log"
+    exit 1
+fi
+
 # Check build results
 RPM_DIR="$BUILD_DIR/RPMS"
 if [ -d "$RPM_DIR" ] && [ "$(find "$RPM_DIR" -name '*.rpm' | wc -l)" -gt 0 ]; then
@@ -170,8 +186,8 @@ if [ -d "$RPM_DIR" ] && [ "$(find "$RPM_DIR" -name '*.rpm' | wc -l)" -gt 0 ]; th
     echo "Tesla kmod packages built:"
     find "$RPM_DIR" -name '*.rpm' -exec basename {} \;
     echo ""
-    echo "Installation command:"
-    echo "sudo rpm-ostree install $(find "$RPM_DIR" -name '*.rpm' | head -1)"
+    echo "Installation command (kmods only):"
+    echo "sudo rpm-ostree install $(find \"$RPM_DIR\" -name '*nvidia-tesla-kmod*.rpm' | head -1)"
     echo ""
     echo "Or for traditional systems:"
     echo "sudo dnf install $(find "$RPM_DIR" -name '*.rpm' | head -1)"

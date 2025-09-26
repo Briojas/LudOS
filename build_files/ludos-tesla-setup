@@ -185,23 +185,74 @@ install_tesla_drivers() {
         
         # Find all built Tesla RPM packages
         local tesla_rpms
-        tesla_rpms=$(find "$NVIDIA_KMOD_DIR/build/RPMS" -name "*nvidia-tesla*.rpm")
+        mapfile -t tesla_rpms < <(find "$NVIDIA_KMOD_DIR/build/RPMS" -name "*nvidia-tesla*.rpm" -print | sort)
         
-        if [ -n "$tesla_rpms" ]; then
+        if [ ${#tesla_rpms[@]} -gt 0 ]; then
             echo "Installing Tesla driver packages..."
             echo "Found packages:"
-            echo "$tesla_rpms" | while read rpm; do echo "  - $(basename "$rpm")"; done
-            
+            for rpm in "${tesla_rpms[@]}"; do
+                echo "  - $(basename "$rpm")"
+            done
+
+            local utils_rpm=""
+            local common_rpm=""
+            local kmod_rpms=()
+            local other_rpms=()
+
+            for rpm in "${tesla_rpms[@]}"; do
+                local base_rpm
+                base_rpm=$(basename "$rpm")
+                case "$base_rpm" in
+                    nvidia-tesla-utils-*.rpm)
+                        utils_rpm="$rpm"
+                        ;;
+                    nvidia-tesla-kmod-common-*.rpm)
+                        common_rpm="$rpm"
+                        ;;
+                    nvidia-tesla-kmod-*.rpm)
+                        kmod_rpms+=("$rpm")
+                        ;;
+                    *)
+                        other_rpms+=("$rpm")
+                        ;;
+                esac
+            done
+
+            if [ -z "$utils_rpm" ]; then
+                echo "ERROR: Tesla utilities RPM not found in build output"
+                exit 1
+            fi
+
+            if [ -z "$common_rpm" ]; then
+                echo "ERROR: Tesla kmod common RPM not found in build output"
+                exit 1
+            fi
+
+            if [ ${#kmod_rpms[@]} -eq 0 ]; then
+                echo "ERROR: Tesla kmod RPM not found in build output"
+                exit 1
+            fi
+
             # Remove consumer drivers first
             echo "Removing consumer NVIDIA drivers..."
             rpm-ostree uninstall kmod-nvidia xorg-x11-drv-nvidia-cuda || echo "Consumer drivers not installed"
+
+            # Install Tesla drivers + utilities in dependency-friendly order
+            echo "Installing Tesla drivers and utilities..."
+            rpm-ostree install "$common_rpm" "${kmod_rpms[@]}" "$utils_rpm"
             
-            # Install Tesla drivers only (nvidia-smi should be included in Tesla driver)
-            echo "Installing Tesla drivers..."
-            rpm-ostree install $tesla_rpms
-            
+            # Install any additional Tesla RPMs (if present)
+            if [ ${#other_rpms[@]} -gt 0 ]; then
+                echo "Installing additional Tesla RPMs:"
+                for rpm in "${other_rpms[@]}"; do
+                    echo "  - $(basename "$rpm")"
+                done
+                rpm-ostree install "${other_rpms[@]}"
+            fi
+
             # Update status
             echo "TESLA_DRIVERS_INSTALLED=true" > /etc/ludos/nvidia-driver-status
+            echo "TESLA_UTILS_INSTALLED=true" >> /etc/ludos/nvidia-driver-status
             echo "TESLA_VERSION=$version" >> /etc/ludos/nvidia-driver-status
             echo "✅ Tesla driver installation completed!"
             echo "🔄 Reboot required to activate Tesla drivers"
@@ -244,7 +295,7 @@ remove_tesla_drivers() {
         echo "Removing Tesla drivers and reverting to consumer drivers..."
         
         # Remove Tesla packages
-        rpm-ostree uninstall nvidia-tesla-kmod || echo "Tesla kmod not installed"
+        rpm-ostree uninstall nvidia-tesla-utils nvidia-tesla-kmod || echo "Tesla packages not fully installed"
         
         # Install consumer drivers
         echo "Installing consumer NVIDIA drivers..."
