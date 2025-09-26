@@ -8,6 +8,10 @@ License:        Redistributable, no modification permitted
 URL:            https://www.nvidia.com/
 Source0:        nvidia-tesla-driver-%{version}.tar.xz
 
+%global _missing_build_ids_terminate_build 0
+%global debug_package %{nil}
+%undefine _debugsource_packages
+
 BuildArch:      x86_64
 Requires:       nvidia-tesla-kmod-common = %{epoch}:%{version}-%{release}
 Requires(post): %{_sbindir}/ldconfig
@@ -26,42 +30,43 @@ rm -rf %{buildroot}
 
 install -d %{buildroot}%{_bindir}
 install -d %{buildroot}%{_libdir}
-install -d %{buildroot}%{_mandir}/man1
 install -d %{buildroot}%{_datadir}/doc/%{name}
 install -d %{buildroot}%{_datadir}/licenses/%{name}
 install -d %{buildroot}%{_sysconfdir}/nvidia
 
-# Binaries
-install -m 0755 usr/bin/nvidia-smi %{buildroot}%{_bindir}/
-if [ -f usr/bin/nvidia-debugdump ]; then
-    install -m 0755 usr/bin/nvidia-debugdump %{buildroot}%{_bindir}/
-fi
-if [ -f usr/bin/nvidia-bug-report.sh ]; then
-    install -m 0755 usr/bin/nvidia-bug-report.sh %{buildroot}%{_bindir}/
+# Binaries (Tesla .run places these at top-level rather than usr/bin)
+if [ -f nvidia-smi ]; then
+    install -m 0755 nvidia-smi %{buildroot}%{_bindir}/
+elif [ -f usr/bin/nvidia-smi ]; then
+    install -m 0755 usr/bin/nvidia-smi %{buildroot}%{_bindir}/
+else
+    echo "nvidia-smi binary not found in Tesla driver payload" >&2
+    exit 1
 fi
 
-# Man pages (if available)
-if [ -f usr/share/man/man1/nvidia-smi.1.gz ]; then
-    install -m 0644 usr/share/man/man1/nvidia-smi.1.gz %{buildroot}%{_mandir}/man1/
+if [ -f nvidia-debugdump ]; then
+    install -m 0755 nvidia-debugdump %{buildroot}%{_bindir}/
+elif [ -f usr/bin/nvidia-debugdump ]; then
+    install -m 0755 usr/bin/nvidia-debugdump %{buildroot}%{_bindir}/
 fi
-if [ -f usr/share/man/man1/nvidia-debugdump.1.gz ]; then
-    install -m 0644 usr/share/man/man1/nvidia-debugdump.1.gz %{buildroot}%{_mandir}/man1/
+if [ -f nvidia-bug-report.sh ]; then
+    install -m 0755 nvidia-bug-report.sh %{buildroot}%{_bindir}/
+elif [ -f usr/bin/nvidia-bug-report.sh ]; then
+    install -m 0755 usr/bin/nvidia-bug-report.sh %{buildroot}%{_bindir}/
 fi
 
 # Libraries required by nvidia-smi
 for lib in libnvidia-ml.so libnvidia-cfg.so; do
-    if compgen -G "usr/lib64/${lib}*" >/dev/null; then
+    if compgen -G "${lib}*" >/dev/null; then
+        cp -a ${lib}* %{buildroot}%{_libdir}/
+    elif compgen -G "lib/${lib}*" >/dev/null; then
+        cp -a lib/${lib}* %{buildroot}%{_libdir}/
+    elif compgen -G "lib64/${lib}*" >/dev/null; then
+        cp -a lib64/${lib}* %{buildroot}%{_libdir}/
+    elif compgen -G "usr/lib64/${lib}*" >/dev/null; then
         cp -a usr/lib64/${lib}* %{buildroot}%{_libdir}/
     fi
 done
-
-# Additional NVML ancillary data (if present)
-if [ -d etc/nvidia/nvidia-application-profiles-rc.d ]; then
-    cp -a etc/nvidia/nvidia-application-profiles-rc.d %{buildroot}%{_sysconfdir}/nvidia/
-fi
-if [ -f etc/nvidia/nvidia-application-profiles-rc ]; then
-    install -m 0644 etc/nvidia/nvidia-application-profiles-rc %{buildroot}%{_sysconfdir}/nvidia/
-fi
 
 # Documentation / licenses
 if [ -f LICENSE ]; then
@@ -83,15 +88,10 @@ done
 %license %{_datadir}/licenses/%{name}/*
 %doc %{_datadir}/doc/%{name}/*
 %{_bindir}/nvidia-smi
-%{_bindir}/nvidia-debugdump
-%{_bindir}/nvidia-bug-report.sh
-%{_mandir}/man1/nvidia-smi.1.gz
-%{_mandir}/man1/nvidia-debugdump.1.gz
 %{_libdir}/libnvidia-ml.so*
 %{_libdir}/libnvidia-cfg.so*
-%config(noreplace) %{_sysconfdir}/nvidia/nvidia-application-profiles-rc
-%dir %{_sysconfdir}/nvidia
-%{_sysconfdir}/nvidia/nvidia-application-profiles-rc.d
+%{_bindir}/nvidia-debugdump
+%{_bindir}/nvidia-bug-report.sh
 
 %changelog
 * Fri Sep 26 2025 LudOS Project <ludos@example.com> - 1:580.82.07-1.ludos

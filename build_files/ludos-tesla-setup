@@ -209,8 +209,11 @@ install_tesla_drivers() {
                     nvidia-tesla-kmod-common-*.rpm)
                         common_rpm="$rpm"
                         ;;
-                    nvidia-tesla-kmod-*.rpm)
+                    nvidia-tesla-kmod-*.rpm|kmod-nvidia-tesla-*.rpm)
                         kmod_rpms+=("$rpm")
+                        ;;
+                    akmod-nvidia-tesla-*.rpm)
+                        other_rpms+=("$rpm")
                         ;;
                     *)
                         other_rpms+=("$rpm")
@@ -229,7 +232,13 @@ install_tesla_drivers() {
             fi
 
             if [ ${#kmod_rpms[@]} -eq 0 ]; then
+                mapfile -t kmod_rpms < <(printf '%s\n' "${tesla_rpms[@]}" | grep -E '/(kmod-nvidia-tesla|nvidia-tesla-kmod)-[^/]+\\.rpm$' || true)
+            fi
+
+            if [ ${#kmod_rpms[@]} -eq 0 ]; then
                 echo "ERROR: Tesla kmod RPM not found in build output"
+                echo "Searched packages:"
+                printf '  - %s\n' "${tesla_rpms[@]}"
                 exit 1
             fi
 
@@ -295,7 +304,7 @@ remove_tesla_drivers() {
         echo "Removing Tesla drivers and reverting to consumer drivers..."
         
         # Remove Tesla packages
-        rpm-ostree uninstall nvidia-tesla-utils nvidia-tesla-kmod || echo "Tesla packages not fully installed"
+        rpm-ostree uninstall nvidia-tesla-utils kmod-nvidia-tesla nvidia-tesla-kmod-common || echo "Tesla packages not fully installed"
         
         # Install consumer drivers
         echo "Installing consumer NVIDIA drivers..."
