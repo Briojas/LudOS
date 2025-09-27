@@ -89,52 +89,74 @@ clean:
 # Aggressive cleanup for low disk space situations
 [group('Utility')]
 deep-clean:
-    #!/usr/bin/bash
-    set -eoux pipefail
-    
-    echo "🔥 Starting DEEP cleanup (aggressive)..."
-    
-    # Run standard cleanup first
-    just clean
-    
+        echo "Disk usage before deep-clean extras:"
+    df -h /
+
     # Clean RPM ostree cache and old deployments
     echo "Cleaning rpm-ostree cache and old deployments..."
     sudo rpm-ostree cleanup -m 2>/dev/null || true
-    
+    sudo rpm-ostree cleanup -prune --base 1 2>/dev/null || true
+
+    if command -v ostree >/dev/null 2>&1; then
+        echo "Pruning detached ostree refs and temp directories..."
+        sudo ostree refs --repo=/ostree/repo 2>/dev/null | grep '^ostree/1/' | xargs -r sudo ostree refs --repo=/ostree/repo --delete 2>/dev/null || true
+        sudo ostree cleanup --repo=/ostree/repo 2>/dev/null || true
+        sudo find /ostree/repo/tmp -mindepth 1 -maxdepth 1 -type d -mtime +1 -print -exec sudo rm -rf {} + 2>/dev/null || true
+    fi
+
+    if command -v bootc >/dev/null 2>&1; then
+        echo "Cleaning old bootc checkpoints..."
+        sudo bootc status checkpoints 2>/dev/null | awk 'NR>2 {print $1}' | tail -n +2 | xargs -r sudo bootc delete checkpoint 2>/dev/null || true
+    fi
+
     # Clean all container images (not just unused ones)
     echo "Removing ALL container images..."
     podman rmi -a -f 2>/dev/null || true
     buildah rmi -a -f 2>/dev/null || true
-    
+    podman volume prune -f 2>/dev/null || true
+    podman system prune -a -f --volumes 2>/dev/null || true
+    podman system reset -f 2>/dev/null || true
+
+    echo "Removing lingering container storage directories..."
+    rm -rf ~/.local/share/containers 2>/dev/null || true
+    sudo rm -rf /var/lib/containers 2>/dev/null || true
+    sudo rm -rf /var/tmp/containers 2>/dev/null || true
+
     # Clean more system caches
     echo "Cleaning additional system caches..."
     sudo dnf clean all 2>/dev/null || true
     rm -rf ~/.cache/* 2>/dev/null || true
     sudo rm -rf /var/cache/dnf/* 2>/dev/null || true
     sudo rm -rf /var/cache/PackageKit/* 2>/dev/null || true
-    
+    sudo rm -rf /var/cache/rpm-ostree/* 2>/dev/null || true
+    sudo rm -rf /var/cache/fwupd/* 2>/dev/null || true
+
     # Clean journal logs more aggressively (keep last 1 day)
     echo "Cleaning journal logs (keep 1 day)..."
     sudo journalctl --vacuum-time=1d 2>/dev/null || true
     sudo journalctl --vacuum-size=100M 2>/dev/null || true
-    
+
     # Clean coredumps
     echo "Cleaning coredumps..."
     sudo rm -rf /var/lib/systemd/coredump/* 2>/dev/null || true
-    
+    sudo coredumpctl remove 2>/dev/null || true
+
     # Clean old kernels (keep current + 1)
     echo "Cleaning old kernels..."
     sudo dnf remove $(dnf repoquery --installonly --latest-limit=-2 -q) -y 2>/dev/null || true
-    
+
+    echo "Truncating RPM/DNF logs..."
+    sudo sh -c 'for f in /var/log/dnf* /var/log/rpm*; do [ -f "$f" ] && : > "$f"; done' 2>/dev/null || true
+    sudo rm -f /var/lib/rpm/__db.* 2>/dev/null || true
+
     # Clean user temp files
     echo "Cleaning user temporary files..."
     rm -rf ~/.local/share/Trash/* 2>/dev/null || true
     rm -rf /tmp/* 2>/dev/null || true
     rm -rf /var/tmp/* 2>/dev/null || true
-    
-    echo "🔥 Deep cleanup complete!"
-    echo "Final disk usage:"
-    df -h / | grep -E "(Filesystem|/dev/)"
+
+    echo "Disk usage after deep-clean extras:"
+    df -h /
 
 # Check disk space and warn if low
 [group('Utility')]
