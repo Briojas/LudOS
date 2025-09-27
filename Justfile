@@ -89,6 +89,8 @@ clean:
 # Aggressive cleanup for low disk space situations
 [group('Utility')]
 deep-clean:
+    #!/usr/bin/bash
+    set -eoux pipefail
     echo "Disk usage before deep-clean extras:"
     df -h /
 
@@ -98,15 +100,15 @@ deep-clean:
     sudo rpm-ostree cleanup -prune --base 1 2>/dev/null || true
 
     if command -v ostree >/dev/null 2>&1; then
-        echo "Pruning detached ostree refs and temp directories..."
-        sudo ostree refs --repo=/ostree/repo 2>/dev/null | grep '^ostree/1/' | xargs -r sudo ostree refs --repo=/ostree/repo --delete 2>/dev/null || true
-        sudo ostree cleanup --repo=/ostree/repo 2>/dev/null || true
-        sudo find /ostree/repo/tmp -mindepth 1 -maxdepth 1 -type d -mtime +1 -print -exec sudo rm -rf {} + 2>/dev/null || true
+    echo "Pruning detached ostree refs and temp directories..."
+    sudo ostree refs --repo=/ostree/repo 2>/dev/null | grep '^ostree/1/' | xargs -r sudo ostree refs --repo=/ostree/repo --delete 2>/dev/null || true
+    sudo ostree cleanup --repo=/ostree/repo 2>/dev/null || true
+    sudo find /ostree/repo/tmp -mindepth 1 -maxdepth 1 -type d -mtime +1 -print -exec sudo rm -rf {} + 2>/dev/null || true
     fi
 
     if command -v bootc >/dev/null 2>&1; then
-        echo "Cleaning old bootc checkpoints..."
-        sudo bootc status checkpoints 2>/dev/null | awk 'NR>2 {print $1}' | tail -n +2 | xargs -r sudo bootc delete checkpoint 2>/dev/null || true
+    echo "Cleaning old bootc checkpoints..."
+    sudo bootc status checkpoints 2>/dev/null | awk 'NR>2 {print $1}' | tail -n +2 | xargs -r sudo bootc delete checkpoint 2>/dev/null || true
     fi
 
     # Clean all container images (not just unused ones)
