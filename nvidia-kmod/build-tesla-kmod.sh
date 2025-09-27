@@ -187,10 +187,20 @@ if [ -d "$RPM_DIR" ] && [ "$(find "$RPM_DIR" -name '*.rpm' | wc -l)" -gt 0 ]; th
     find "$RPM_DIR" -name '*.rpm' -exec basename {} \;
     echo ""
     echo "Installation command (kmods only):"
-    echo "sudo rpm-ostree install $(find \"$RPM_DIR\" -name '*nvidia-tesla-kmod*.rpm' | head -1)"
+    kmod_example=$(find "$RPM_DIR" \( -name 'kmod-nvidia-tesla-*.rpm' -o -name 'nvidia-tesla-kmod-*.rpm' \) -print -quit)
+    if [ -n "$kmod_example" ]; then
+        echo "sudo rpm-ostree install \"$kmod_example\""
+    else
+        echo "(kmod RPM not located; see package list above)"
+    fi
     echo ""
     echo "Or for traditional systems:"
-    echo "sudo dnf install $(find "$RPM_DIR" -name '*.rpm' | head -1)"
+    first_rpm=$(find "$RPM_DIR" -name '*.rpm' -print -quit)
+    if [ -n "$first_rpm" ]; then
+        echo "sudo dnf install \"$first_rpm\""
+    else
+        echo "(RPM not located; see package list above)"
+    fi
 else
     echo ""
     echo "=== Build Failed! ==="

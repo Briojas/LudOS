@@ -196,6 +196,7 @@ install_tesla_drivers() {
 
             local utils_rpm=""
             local common_rpm=""
+            local akmod_rpm=""
             local kmod_rpms=()
             local other_rpms=()
 
@@ -213,7 +214,7 @@ install_tesla_drivers() {
                         kmod_rpms+=("$rpm")
                         ;;
                     akmod-nvidia-tesla-*.rpm)
-                        other_rpms+=("$rpm")
+                        akmod_rpm="$rpm"
                         ;;
                     *)
                         other_rpms+=("$rpm")
@@ -248,8 +249,14 @@ install_tesla_drivers() {
 
             # Install Tesla drivers + utilities in dependency-friendly order
             echo "Installing Tesla drivers and utilities..."
-            rpm-ostree install "$common_rpm" "${kmod_rpms[@]}" "$utils_rpm"
-            
+            local install_rpms=("$common_rpm")
+            if [ -n "$akmod_rpm" ]; then
+                install_rpms+=("$akmod_rpm")
+            fi
+            install_rpms+=("${kmod_rpms[@]}" "$utils_rpm")
+
+            rpm-ostree install "${install_rpms[@]}"
+
             # Install any additional Tesla RPMs (if present)
             if [ ${#other_rpms[@]} -gt 0 ]; then
                 echo "Installing additional Tesla RPMs:"
@@ -304,7 +311,7 @@ remove_tesla_drivers() {
         echo "Removing Tesla drivers and reverting to consumer drivers..."
         
         # Remove Tesla packages
-        rpm-ostree uninstall nvidia-tesla-utils kmod-nvidia-tesla nvidia-tesla-kmod-common || echo "Tesla packages not fully installed"
+        rpm-ostree uninstall nvidia-tesla-utils kmod-nvidia-tesla akmod-nvidia-tesla nvidia-tesla-kmod-common || echo "Tesla packages not fully installed"
         
         # Install consumer drivers
         echo "Installing consumer NVIDIA drivers..."
