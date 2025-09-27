@@ -89,7 +89,7 @@ clean:
 # Aggressive cleanup for low disk space situations
 [group('Utility')]
 deep-clean:
-        echo "Disk usage before deep-clean extras:"
+    echo "Disk usage before deep-clean extras:"
     df -h /
 
     # Clean RPM ostree cache and old deployments
