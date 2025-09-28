@@ -15,6 +15,7 @@ ENROLL_MOK="${ENROLL_MOK:-0}"
 MOK_DIR="${MOK_DIR:-/etc/ludos/secureboot}"
 MOK_KEY="${MOK_KEY:-$MOK_DIR/MOK.key}"
 MOK_CRT="${MOK_CRT:-$MOK_DIR/MOK.crt}"
+MOK_DER="${MOK_DER:-$MOK_DIR/MOK.der}"
 
 echo "=== LudOS Tesla NVIDIA kmod Builder ==="
 echo "Tesla Driver Version: $TESLA_VERSION"
@@ -27,15 +28,15 @@ if ! command -v rpm-ostree >/dev/null 2>&1 && ! grep -q "fedora" /etc/os-release
     echo "Continuing anyway..."
 fi
 
-# Optionally stage MOK enrollment
+# Optionally stage MOK enrollment (use DER format)
 if [ "$SIGN_MODULES" = "1" ] && [ "$ENROLL_MOK" = "1" ]; then
     if command -v mokutil >/dev/null 2>&1; then
         echo "Staging MOK for enrollment with mokutil..."
-        if mokutil --import "$MOK_CRT"; then
+        if mokutil --import "$MOK_DER"; then
             echo "MOK import staged. You will be prompted on next boot to enroll."
         else
             echo "WARNING: MOK import failed (Secure Boot may be disabled). You can enroll later with:"
-            echo "  sudo mokutil --import $MOK_CRT"
+            echo "  sudo mokutil --import $MOK_DER"
         fi
     fi
 fi
@@ -116,9 +117,15 @@ if [ "$SIGN_MODULES" = "1" ]; then
         openssl req -new -x509 -newkey rsa:2048 -nodes -days 36500 \
           -subj "/CN=LudOS NVIDIA Module Signing/" \
           -keyout "$MOK_KEY" -out "$MOK_CRT"
-        echo "MOK generated: $MOK_CRT"
+        # Convert certificate to DER for sign-file and mokutil
+        openssl x509 -in "$MOK_CRT" -outform DER -out "$MOK_DER"
+        echo "MOK generated: $MOK_CRT (PEM) and $MOK_DER (DER)"
     else
-        echo "Using existing MOK: $MOK_CRT"
+        # Ensure DER exists
+        if [ ! -f "$MOK_DER" ]; then
+            openssl x509 -in "$MOK_CRT" -outform DER -out "$MOK_DER"
+        fi
+        echo "Using existing MOK: $MOK_CRT (PEM) and $MOK_DER (DER)"
     fi
 fi
 
@@ -204,7 +211,7 @@ echo "Build log will be saved to: $BUILD_DIR/build.log"
 # Prepare rpmbuild defines for optional module signing
 SIGN_DEFINES=()
 if [ "$SIGN_MODULES" = "1" ]; then
-    SIGN_DEFINES=(--define "sign_modules 1" --define "mok_key $MOK_KEY" --define "mok_crt $MOK_CRT")
+    SIGN_DEFINES=(--define "sign_modules 1" --define "mok_key $MOK_KEY" --define "mok_crt $MOK_DER")
 fi
 
 if rpmbuild --define "_topdir $BUILD_DIR" \

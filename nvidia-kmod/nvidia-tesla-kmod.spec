@@ -30,6 +30,10 @@ Source101:     nvidia-kmod-noopen-pciids.txt
 
 ExclusiveArch:  x86_64
 
+# Optional Secure Boot signing inputs
+%global mok_key %{nil}
+%global mok_crt %{nil}
+
 # LudOS Tesla kmod build requirements (simplified for bootc)
 BuildRequires:  %{_bindir}/kmodtool
 BuildRequires:  wget2-wget, curl
@@ -149,8 +153,7 @@ for kernel_version in %{?kernel_versions}; do
     install -D -m 0755 _kmod_build_${kernel_version%%___*}/nvidia*.ko \
          $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
 done
-%if 0%{?sign_modules:1}
-echo "Signing NVIDIA kernel modules in buildroot using provided MOK"
+echo "Attempting to sign NVIDIA kernel modules if MOK is available"
 for kernel_version in %{?kernel_versions}; do
   sign="/usr/src/kernels/${kernel_version%%___*}/scripts/sign-file"
   if [ -x "$sign" ] && [ -f "%{?mok_key}" ] && [ -f "%{?mok_crt}" ]; then
@@ -158,10 +161,9 @@ for kernel_version in %{?kernel_versions}; do
       "$sign" sha256 %{?mok_key} %{?mok_crt} "$ko" || exit 1
     done
   else
-    echo "WARNING: Skipping module signing for ${kernel_version%%___*} (missing sign-file or MOK key/cert)"
+    echo "Skipping module signing; sign-file or MOK not present"
   fi
 done
-%endif
 %{?akmod_install}
 
 %changelog
