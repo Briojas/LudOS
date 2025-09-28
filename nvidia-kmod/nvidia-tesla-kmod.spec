@@ -13,7 +13,7 @@ Name:          nvidia-tesla-kmod
 Epoch:         1
 Version:       580.82.07
 # Taken over by kmodtool
-Release:       1.ludos%{?dist}
+Release:       2.ludos%{?dist}
 Summary:       NVIDIA Tesla datacenter driver kernel module
 License:       Redistributable, no modification permitted
 URL:           https://www.nvidia.com/
@@ -149,9 +149,26 @@ for kernel_version in %{?kernel_versions}; do
     install -D -m 0755 _kmod_build_${kernel_version%%___*}/nvidia*.ko \
          $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
 done
+%if 0%{?sign_modules:1}
+echo "Signing NVIDIA kernel modules in buildroot using provided MOK"
+for kernel_version in %{?kernel_versions}; do
+  sign="/usr/src/kernels/${kernel_version%%___*}/scripts/sign-file"
+  if [ -x "$sign" ] && [ -f "%{?mok_key}" ] && [ -f "%{?mok_crt}" ]; then
+    for ko in $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/nvidia*.ko; do
+      "$sign" sha256 %{?mok_key} %{?mok_crt} "$ko" || exit 1
+    done
+  else
+    echo "WARNING: Skipping module signing for ${kernel_version%%___*} (missing sign-file or MOK key/cert)"
+  fi
+done
+%endif
 %{?akmod_install}
 
 %changelog
+* Sat Sep 28 2025 LudOS Project <ludos@example.com> - 1:580.82.07-2.ludos
+- Add optional module signing in %install when built with --define 'sign_modules 1'
+- Enable Secure Boot compliance when paired with MOK enrollment
+
 * Wed Sep 18 2024 LudOS Project <ludos@example.com> - 1:580.82.07-1.ludos
 - Initial Tesla datacenter driver package for LudOS
 - Based on RPM Fusion nvidia-kmod with Tesla driver sources

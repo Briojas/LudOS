@@ -10,6 +10,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LUDOS_ROOT="$(dirname "$SCRIPT_DIR")"
 TESLA_VERSION="${TESLA_VERSION:-580.82.07}"
 BUILD_DIR="${BUILD_DIR:-$SCRIPT_DIR/build}"
+SIGN_MODULES="${SIGN_MODULES:-0}"
+ENROLL_MOK="${ENROLL_MOK:-0}"
+MOK_DIR="${MOK_DIR:-/etc/ludos/secureboot}"
+MOK_KEY="${MOK_KEY:-$MOK_DIR/MOK.key}"
+MOK_CRT="${MOK_CRT:-$MOK_DIR/MOK.crt}"
 
 echo "=== LudOS Tesla NVIDIA kmod Builder ==="
 echo "Tesla Driver Version: $TESLA_VERSION"
@@ -20,6 +25,19 @@ echo ""
 if ! command -v rpm-ostree >/dev/null 2>&1 && ! grep -q "fedora" /etc/os-release; then
     echo "WARNING: This script is designed for Fedora/bootc systems"
     echo "Continuing anyway..."
+fi
+
+# Optionally stage MOK enrollment
+if [ "$SIGN_MODULES" = "1" ] && [ "$ENROLL_MOK" = "1" ]; then
+    if command -v mokutil >/dev/null 2>&1; then
+        echo "Staging MOK for enrollment with mokutil..."
+        if mokutil --import "$MOK_CRT"; then
+            echo "MOK import staged. You will be prompted on next boot to enroll."
+        else
+            echo "WARNING: MOK import failed (Secure Boot may be disabled). You can enroll later with:"
+            echo "  sudo mokutil --import $MOK_CRT"
+        fi
+    fi
 fi
 
 # Create build environment
@@ -72,6 +90,38 @@ fi
 
 echo "All required build dependencies are available"
 
+# Optional: prepare Secure Boot signing
+if [ "$SIGN_MODULES" = "1" ]; then
+    echo "Secure Boot: signing of NVIDIA modules is ENABLED"
+    # Ensure prerequisites
+    MISSING_SB=()
+    command -v openssl >/dev/null 2>&1 || MISSING_SB+=(openssl)
+    command -v mokutil >/dev/null 2>&1 || MISSING_SB+=(mokutil)
+    if [ ${#MISSING_SB[@]} -gt 0 ]; then
+        echo "Missing Secure Boot tools: ${MISSING_SB[*]}"
+        echo "Installing via rpm-ostree..."
+        rpm-ostree install --apply-live "${MISSING_SB[@]}" || {
+            echo "Failed to install Secure Boot tools"; exit 1; }
+    fi
+    # Ensure kernel-devel present (for sign-file)
+    if [ ! -x "/usr/src/kernels/$(uname -r)/scripts/sign-file" ]; then
+        echo "sign-file not found; installing kernel-devel live"
+        rpm-ostree install --apply-live kernel-devel || {
+            echo "Failed to install kernel-devel"; exit 1; }
+    fi
+    # Create persistent MOK if missing
+    if [ ! -f "$MOK_KEY" ] || [ ! -f "$MOK_CRT" ]; then
+        echo "Creating MOK under $MOK_DIR"
+        mkdir -p "$MOK_DIR"
+        openssl req -new -x509 -newkey rsa:2048 -nodes -days 36500 \
+          -subj "/CN=LudOS NVIDIA Module Signing/" \
+          -keyout "$MOK_KEY" -out "$MOK_CRT"
+        echo "MOK generated: $MOK_CRT"
+    else
+        echo "Using existing MOK: $MOK_CRT"
+    fi
+fi
+
 # Copy spec files and patches
 echo "Copying spec files and patches..."
 cp "$SCRIPT_DIR/nvidia-tesla-kmod.spec" "$BUILD_DIR/SPECS/"
@@ -81,6 +131,10 @@ cp "$SCRIPT_DIR/make_modeset_default.patch" "$BUILD_DIR/SOURCES/"
 cp "$SCRIPT_DIR/ludos-tesla-optimizations.patch" "$BUILD_DIR/SOURCES/"
 cp "$SCRIPT_DIR/nvidia-kmod-noopen-checks" "$BUILD_DIR/SOURCES/"
 cp "$SCRIPT_DIR/nvidia-kmod-noopen-pciids.txt" "$BUILD_DIR/SOURCES/"
+# Service for creating NVIDIA device nodes at boot (used by utils spec)
+if [ -f "$SCRIPT_DIR/nvidia-device-setup.service" ]; then
+    cp "$SCRIPT_DIR/nvidia-device-setup.service" "$BUILD_DIR/SOURCES/"
+fi
 
 # Check for Tesla driver (user must provide)
 echo "Checking for Tesla driver $TESLA_VERSION..."
@@ -147,12 +201,19 @@ echo "Building Tesla kmod RPM..."
 echo "Using kernel version: $KERNEL_VERSION"
 echo "Build log will be saved to: $BUILD_DIR/build.log"
 
+# Prepare rpmbuild defines for optional module signing
+SIGN_DEFINES=()
+if [ "$SIGN_MODULES" = "1" ]; then
+    SIGN_DEFINES=(--define "sign_modules 1" --define "mok_key $MOK_KEY" --define "mok_crt $MOK_CRT")
+fi
+
 if rpmbuild --define "_topdir $BUILD_DIR" \
          --define "version $TESLA_VERSION" \
          --define "kernel_version $KERNEL_VERSION" \
          --define "kernel_release $KERNEL_RELEASE" \
          --define "kernel_base $KERNEL_BASE" \
          --define "kernel_dist $KERNEL_DIST" \
+         ${SIGN_DEFINES[@]} \
          -bb "$BUILD_DIR/SPECS/nvidia-tesla-kmod.spec" 2>&1 | tee "$BUILD_DIR/build.log"; then
     echo "RPM build completed successfully"
 else

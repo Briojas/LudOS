@@ -1,0 +1,13 @@
+[Unit]
+Description=Create NVIDIA device nodes
+DefaultDependencies=no
+After=systemd-modules-load.service
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nvidia-modprobe -u -c=0
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

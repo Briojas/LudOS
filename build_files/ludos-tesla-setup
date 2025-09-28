@@ -17,7 +17,9 @@ USAGE:
 
 COMMANDS:
     install-consumer         Install consumer NVIDIA drivers (gaming/GeForce)
-    install-tesla <file>     Install Tesla datacenter drivers from .run file
+    install-tesla [--secure-boot|-S] <file>
+                              Install Tesla datacenter drivers from .run file
+                              --secure-boot: sign modules and stage MOK enrollment
     remove                   Remove current drivers
     status                   Show current driver status
     list-versions           List available Tesla driver versions
@@ -29,6 +31,9 @@ EXAMPLES:
     
     # Install Tesla drivers from downloaded .run file
     $SCRIPT_NAME install-tesla ~/Downloads/NVIDIA-Linux-x86_64-580.82.07.run
+
+    # Install Tesla drivers with Secure Boot support (signed modules + MOK)
+    $SCRIPT_NAME install-tesla --secure-boot ~/Downloads/NVIDIA-Linux-x86_64-580.82.07.run
     
     # Check current driver status
     $SCRIPT_NAME status
@@ -179,7 +184,8 @@ install_tesla_drivers() {
     cd "$NVIDIA_KMOD_DIR"
     export TESLA_VERSION="$version"
     echo "Building Tesla kmod packages..."
-    if ./build-tesla-kmod.sh; then
+    # If SECURE_BOOT_MODE=1, enable signing and MOK staging during build
+    if SIGN_MODULES=${SECURE_BOOT_MODE:-0} ENROLL_MOK=${SECURE_BOOT_MODE:-0} ./build-tesla-kmod.sh; then
         echo ""
         echo "Tesla kmod build successful!"
         
@@ -257,6 +263,11 @@ install_tesla_drivers() {
 
             rpm-ostree install "${install_rpms[@]}"
 
+            # Ensure device nodes are created this boot
+            systemctl daemon-reload || true
+            systemctl enable --now nvidia-device-setup.service 2>/dev/null || true
+            command -v nvidia-modprobe >/dev/null 2>&1 && nvidia-modprobe -u -c=0 || true
+
             # Install any additional Tesla RPMs (if present)
             if [ ${#other_rpms[@]} -gt 0 ]; then
                 echo "Installing additional Tesla RPMs:"
@@ -271,6 +282,10 @@ install_tesla_drivers() {
             echo "TESLA_UTILS_INSTALLED=true" >> /etc/ludos/nvidia-driver-status
             echo "TESLA_VERSION=$version" >> /etc/ludos/nvidia-driver-status
             echo "✅ Tesla driver installation completed!"
+            if [ "${SECURE_BOOT_MODE:-0}" = "1" ]; then
+                echo "🔐 Secure Boot: A MOK enrollment has been staged. On next boot,"
+                echo "    use the blue MOK Manager to enroll the \"LudOS NVIDIA Module Signing\" key."
+            fi
             echo "🔄 Reboot required to activate Tesla drivers"
             echo ""
             read -p "Reboot now? (y/N): " -n 1 -r
@@ -361,13 +376,31 @@ case "${1:-help}" in
         install_consumer_drivers
         ;;
     "install-tesla")
+        # Syntax: install-tesla [--secure-boot|-S] <driver_file>
+        SECURE_BOOT_MODE=0
+        DRIVER_ARG=""
         if [ $# -lt 2 ]; then
             echo "ERROR: Driver file required"
-            echo "Usage: $SCRIPT_NAME install-tesla <driver_file>"
+            echo "Usage: $SCRIPT_NAME install-tesla [--secure-boot|-S] <driver_file>"
             exit 1
         fi
+        case "${2:-}" in
+            --secure-boot|-S)
+                SECURE_BOOT_MODE=1
+                if [ $# -lt 3 ]; then
+                    echo "ERROR: Driver file required"
+                    echo "Usage: $SCRIPT_NAME install-tesla [--secure-boot|-S] <driver_file>"
+                    exit 1
+                fi
+                DRIVER_ARG="$3"
+                ;;
+            *)
+                DRIVER_ARG="$2"
+                ;;
+        esac
+        export SECURE_BOOT_MODE
         check_requirements
-        install_tesla_drivers "$2"
+        install_tesla_drivers "$DRIVER_ARG"
         ;;
     "remove")
         check_requirements
