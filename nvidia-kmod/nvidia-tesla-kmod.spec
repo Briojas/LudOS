@@ -13,7 +13,7 @@ Name:          nvidia-tesla-kmod
 Epoch:         1
 Version:       580.82.07
 # Taken over by kmodtool
-Release:       2.ludos%{?dist}
+Release:       3.ludos%{?dist}
 Summary:       NVIDIA Tesla datacenter driver kernel module
 License:       Redistributable, no modification permitted
 URL:           https://www.nvidia.com/
@@ -167,6 +167,9 @@ done
 %{?akmod_install}
 
 %changelog
+* Mon Sep 29 2025 LudOS Project <ludos@example.com> - 1:580.82.07-3.ludos
+- Enforce version bump for Secure Boot/MOK workflow updates and signing logic
+- No functional changes beyond packaging policy alignment
 * Sat Sep 28 2025 LudOS Project <ludos@example.com> - 1:580.82.07-2.ludos
 - Add optional module signing in %install when built with --define 'sign_modules 1'
 - Enable Secure Boot compliance when paired with MOK enrollment

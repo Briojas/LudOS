@@ -1,0 +1,55 @@
+name: Version Bump Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [ main ]
+
+jobs:
+  ensure-version-bump:
+    name: Ensure VERSION bump on critical changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute changed files
+        id: diff
+        shell: bash
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$BASE_SHA" ]; then
+            # push event: compare to previous commit
+            BASE_SHA=$(git rev-parse HEAD~1)
+          fi
+          HEAD_SHA="${{ github.sha }}"
+          echo "BASE_SHA=$BASE_SHA" >> $GITHUB_OUTPUT
+          echo "HEAD_SHA=$HEAD_SHA" >> $GITHUB_OUTPUT
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | tee /tmp/changed_files
+
+      - name: Show changed files
+        run: |
+          echo "Changed files between ${{ steps.diff.outputs.BASE_SHA }} and ${{ steps.diff.outputs.HEAD_SHA }}:" 
+          cat /tmp/changed_files || true
+
+      - name: Enforce version bump when driver workflow changes
+        shell: bash
+        run: |
+          # Critical paths that require a version bump when changed
+          critical_regex='^(nvidia-kmod/|build_files/ludos-tesla-setup$|nvidia-kmod/nvidia-.*\.spec$|nvidia-kmod/.*\.service$)'
+          if grep -E "$critical_regex" /tmp/changed_files >/dev/null 2>&1; then
+            echo "Detected critical driver-related changes. Checking VERSION bump..."
+            if grep -x 'VERSION' /tmp/changed_files >/dev/null 2>&1; then
+              echo "VERSION file changed — OK"
+            else
+              echo "::error::Version bump required. Please update the top-level VERSION file (e.g., bump patch)."
+              echo "       Critical changes detected in:"
+              grep -E "$critical_regex" /tmp/changed_files || true
+              exit 1
+            fi
+          else
+            echo "No critical driver-related changes detected. Skipping version bump enforcement."
+          fi
