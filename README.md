@@ -44,6 +44,8 @@ LudOS is a specialized headless gaming virtual machine image built on Fedora 42 
    just build-qcow2  # For virtual machines
    just build-iso    # For bare metal installation
    ```
+   
+   **Note**: The build process takes 10-30 minutes. You'll be prompted for your sudo password at the start. The script will automatically keep sudo active during the entire build, so you can safely leave your computer during the build process.
 
 ### Deployment
 

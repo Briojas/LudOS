@@ -308,6 +308,28 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
 
     BUILDTMP=$(mktemp -p "${PWD}" -d -t _build-bib.XXXXXXXXXX)
 
+    # Validate sudo access upfront before long build process
+    echo "Validating sudo access..."
+    if ! sudo -v; then
+        echo "ERROR: Failed to validate sudo credentials"
+        rm -rf "${BUILDTMP}"
+        exit 1
+    fi
+    
+    # Keep sudo alive in background during long build
+    # This prevents timeout issues during lengthy bootc builds
+    (
+        while true; do
+            sleep 240  # Refresh every 4 minutes (default sudo timeout is 5 min)
+            sudo -v
+        done
+    ) &
+    SUDO_REFRESH_PID=$!
+    
+    # Ensure background process is killed on exit
+    trap "kill $SUDO_REFRESH_PID 2>/dev/null || true" EXIT
+    
+    echo "Starting bootc image builder (this may take 10-30 minutes)..."
     sudo podman run \
       --rm \
       -it \
@@ -322,13 +344,13 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
       ${args} \
       "${target_image}:${tag}"
 
+    # Kill the sudo refresh background process
+    kill $SUDO_REFRESH_PID 2>/dev/null || true
+    
     mkdir -p output
-    # Handle file operations with proper sudo session management
+    # Move files and cleanup with active sudo session
     echo "Moving build output files..."
-    while ! sudo mv -f $BUILDTMP/* output/ 2>/dev/null; do
-        echo "Please enter your sudo password to complete the build:"
-        sudo -v
-    done
+    sudo mv -f $BUILDTMP/* output/
     sudo rmdir $BUILDTMP
     sudo chown -R $USER:$USER output/
     
