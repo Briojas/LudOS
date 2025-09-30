@@ -209,7 +209,7 @@ if rpmbuild --define "_topdir $BUILD_DIR" \
          --define "kernel_release $KERNEL_RELEASE" \
          --define "kernel_base $KERNEL_BASE" \
          --define "kernel_dist $KERNEL_DIST" \
-         ${SIGN_DEFINES[@]} \
+         ${SIGN_DEFINES[@]+"${SIGN_DEFINES[@]}"} \
          -bb "$BUILD_DIR/SPECS/nvidia-tesla-kmod.spec" 2>&1 | tee "$BUILD_DIR/build.log"; then
     echo "RPM build completed successfully"
 else

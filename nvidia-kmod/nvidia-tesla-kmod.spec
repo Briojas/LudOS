@@ -13,7 +13,7 @@ Name:          nvidia-tesla-kmod
 Epoch:         1
 Version:       580.82.07
 # Taken over by kmodtool
-Release:       3.ludos%{?dist}
+Release:       4.ludos%{?dist}
 Summary:       NVIDIA Tesla datacenter driver kernel module
 License:       Redistributable, no modification permitted
 URL:           https://www.nvidia.com/
@@ -149,20 +149,32 @@ for kernel_version in %{?kernel_versions}; do
     install -D -m 0755 _kmod_build_${kernel_version%%___*}/nvidia*.ko \
          $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
 done
-echo "Attempting to sign NVIDIA kernel modules if MOK is available"
+%if 0%{?mok_key:1}
+echo "Attempting to sign NVIDIA kernel modules with MOK"
 for kernel_version in %{?kernel_versions}; do
   sign="/usr/src/kernels/${kernel_version%%___*}/scripts/sign-file"
-  if [ -x "$sign" ] && [ -f "/etc/ludos/secureboot/MOK.key" ] && [ -f "/etc/ludos/secureboot/MOK.der" ]; then
+  if [ -x "$sign" ] && [ -f "%{mok_key}" ] && [ -f "%{mok_crt}" ]; then
     for ko in $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/nvidia*.ko; do
-      "$sign" sha256 /etc/ludos/secureboot/MOK.key /etc/ludos/secureboot/MOK.der "$ko" || exit 1
+      "$sign" sha256 %{mok_key} %{mok_crt} "$ko" || exit 1
     done
+    echo "Successfully signed modules with MOK"
   else
-    echo "Skipping module signing; sign-file or MOK not present"
+    echo "WARNING: sign-file or MOK files not found, skipping signing"
+    exit 1
   fi
 done
+%else
+echo "Module signing not requested (no mok_key defined)"
+%endif
 %{?akmod_install}
 
 %changelog
+* Tue Sep 30 2025 LudOS Project <ludos@example.com> - 1:580.82.07-4.ludos
+- Fix RPM macro error: properly use %{mok_key} and %{mok_crt} macros in spec file
+- Add conditional module signing only when mok_key is defined
+- Improve build script to handle empty SIGN_DEFINES array correctly
+- Version bump per NVIDIA driver workflow policy
+
 * Mon Sep 29 2025 LudOS Project <ludos@example.com> - 1:580.82.07-3.ludos
 - Enforce version bump for Secure Boot/MOK workflow updates and signing logic
 - No functional changes beyond packaging policy alignment
