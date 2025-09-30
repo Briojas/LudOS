@@ -30,10 +30,6 @@ Source101:     nvidia-kmod-noopen-pciids.txt
 
 ExclusiveArch:  x86_64
 
-# Optional Secure Boot signing inputs
-%global mok_key %{nil}
-%global mok_crt %{nil}
-
 # LudOS Tesla kmod build requirements (simplified for bootc)
 BuildRequires:  %{_bindir}/kmodtool
 BuildRequires:  wget2-wget, curl
@@ -156,9 +152,9 @@ done
 echo "Attempting to sign NVIDIA kernel modules if MOK is available"
 for kernel_version in %{?kernel_versions}; do
   sign="/usr/src/kernels/${kernel_version%%___*}/scripts/sign-file"
-  if [ -x "$sign" ] && [ -f "%{?mok_key}" ] && [ -f "%{?mok_crt}" ]; then
+  if [ -x "$sign" ] && [ -f "/etc/ludos/secureboot/MOK.key" ] && [ -f "/etc/ludos/secureboot/MOK.der" ]; then
     for ko in $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/nvidia*.ko; do
-      "$sign" sha256 %{?mok_key} %{?mok_crt} "$ko" || exit 1
+      "$sign" sha256 /etc/ludos/secureboot/MOK.key /etc/ludos/secureboot/MOK.der "$ko" || exit 1
     done
   else
     echo "Skipping module signing; sign-file or MOK not present"
