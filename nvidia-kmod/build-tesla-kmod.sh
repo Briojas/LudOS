@@ -100,6 +100,7 @@ if [ "$SIGN_MODULES" = "1" ]; then
             echo "Failed to install kernel-devel"; exit 1; }
     fi
     # Create persistent MOK if missing
+    MOK_NEWLY_CREATED=false
     if [ ! -f "$MOK_KEY" ] || [ ! -f "$MOK_CRT" ]; then
         echo "Creating MOK under $MOK_DIR"
         mkdir -p "$MOK_DIR"
@@ -109,12 +110,51 @@ if [ "$SIGN_MODULES" = "1" ]; then
         # Convert certificate to DER for sign-file and mokutil
         openssl x509 -in "$MOK_CRT" -outform DER -out "$MOK_DER"
         echo "MOK generated: $MOK_CRT (PEM) and $MOK_DER (DER)"
+        MOK_NEWLY_CREATED=true
     else
         # Ensure DER exists
         if [ ! -f "$MOK_DER" ]; then
             openssl x509 -in "$MOK_CRT" -outform DER -out "$MOK_DER"
         fi
         echo "Using existing MOK: $MOK_CRT (PEM) and $MOK_DER (DER)"
+    fi
+    
+    # Stage MOK enrollment if newly created or not yet enrolled
+    if [ "$MOK_NEWLY_CREATED" = "true" ] || [ "$ENROLL_MOK" = "1" ]; then
+        echo ""
+        echo "============================================"
+        echo "MOK Enrollment Required for Secure Boot"
+        echo "============================================"
+        echo ""
+        echo "To load signed NVIDIA modules on Secure Boot systems, you must"
+        echo "enroll the Machine Owner Key (MOK) into your system firmware."
+        echo ""
+        echo "You will be prompted to create a one-time enrollment password."
+        echo "This password will be used ONCE during the enrollment process"
+        echo "on the next boot. You can use a simple password like '12345678'."
+        echo ""
+        echo "After reboot, a blue MOK Manager screen will appear. Follow these steps:"
+        echo "  1. Select 'Enroll MOK'"
+        echo "  2. Select 'Continue'"
+        echo "  3. Select 'Yes'"
+        echo "  4. Enter the password you set below"
+        echo "  5. Reboot"
+        echo ""
+        
+        # Import MOK (will prompt for password)
+        if mokutil --import "$MOK_DER"; then
+            echo ""
+            echo "✅ MOK enrollment staged successfully!"
+            echo "⚠️  IMPORTANT: Remember the password you just entered."
+            echo "    You will need it on the blue MOK Manager screen after reboot."
+            echo ""
+        else
+            echo ""
+            echo "❌ ERROR: Failed to stage MOK enrollment"
+            echo "You may need to run this manually:"
+            echo "  sudo mokutil --import $MOK_DER"
+            exit 1
+        fi
     fi
 fi
 

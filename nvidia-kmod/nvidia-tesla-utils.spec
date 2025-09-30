@@ -1,7 +1,7 @@
 Name:           nvidia-tesla-utils
 Epoch:          1
 Version:        580.82.07
-Release:        2.ludos%{?dist}
+Release:        5.ludos%{?dist}
 Summary:        NVIDIA Tesla datacenter driver user-space utilities
 
 License:        Redistributable, no modification permitted
@@ -117,6 +117,19 @@ done
 %{_unitdir}/nvidia-device-setup.service
 
 %changelog
+* Tue Sep 30 2025 LudOS Project <ludos@example.com> - 1:580.82.07-5.ludos
+- Bump Release to match nvidia-tesla-kmod.spec for version consistency
+- Align with MOK enrollment workflow improvements
+- Version bump per NVIDIA driver workflow policy
+
+* Tue Sep 30 2025 LudOS Project <ludos@example.com> - 1:580.82.07-4.ludos
+- Bump Release to match nvidia-tesla-kmod.spec for version consistency
+- Fix dependency resolution error between kmod-common and utils packages
+- Version bump per NVIDIA driver workflow policy
+
+* Tue Sep 30 2025 LudOS Project <ludos@example.com> - 1:580.82.07-3.ludos
+- Skipped for version alignment
+
 * Sat Sep 28 2025 LudOS Project <ludos@example.com> - 1:580.82.07-2.ludos
 - Add nvidia-modprobe and systemd unit to create /dev/nvidia* at boot
 - Integrate systemd macros and dependencies

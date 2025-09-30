@@ -13,7 +13,7 @@ Name:          nvidia-tesla-kmod
 Epoch:         1
 Version:       580.82.07
 # Taken over by kmodtool
-Release:       4.ludos%{?dist}
+Release:       5.ludos%{?dist}
 Summary:       NVIDIA Tesla datacenter driver kernel module
 License:       Redistributable, no modification permitted
 URL:           https://www.nvidia.com/
@@ -169,6 +169,13 @@ echo "Module signing not requested (no mok_key defined)"
 %{?akmod_install}
 
 %changelog
+* Tue Sep 30 2025 LudOS Project <ludos@example.com> - 1:580.82.07-5.ludos
+- Add automatic MOK enrollment staging with mokutil --import
+- Implement interactive password prompt for MOK enrollment
+- Add detailed user instructions for blue MOK Manager screen
+- Fix missing MOK enrollment step in Secure Boot workflow
+- Version bump per NVIDIA driver workflow policy
+
 * Tue Sep 30 2025 LudOS Project <ludos@example.com> - 1:580.82.07-4.ludos
 - Fix RPM macro error: properly use %{mok_key} and %{mok_crt} macros in spec file
 - Add conditional module signing only when mok_key is defined

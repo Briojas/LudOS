@@ -222,22 +222,48 @@ sudo /etc/ludos/ludos-setup.sh
    ```
 
 3. **Install Tesla drivers using LudOS management tool:**
+   
+   **For systems WITHOUT Secure Boot:**
    ```bash
    # Install Tesla drivers (replaces consumer drivers)
    sudo ludos-tesla-setup install-tesla ~/NVIDIA-Linux-x86_64-<VERSION>.run
-   
-   # This will:
-   # - Build Tesla kmod packages for bootc compatibility
-   # - Remove consumer drivers
-   # - Install Tesla drivers via rpm-ostree
-   # - Update driver status tracking
-   # - Prompt for reboot
    ```
+   
+   **For systems WITH Secure Boot (recommended):**
+   ```bash
+   # Install Tesla drivers with signed kernel modules
+   sudo ludos-tesla-setup install-tesla --secure-boot ~/NVIDIA-Linux-x86_64-<VERSION>.run
+   ```
+   
+   The installation will:
+   - Build Tesla kmod packages for bootc compatibility
+   - Generate and sign kernel modules with MOK (if --secure-boot used)
+   - Stage MOK enrollment for firmware (you'll set a one-time password)
+   - Remove consumer drivers
+   - Install Tesla drivers via rpm-ostree
+   - Update driver status tracking
+   - Prompt for reboot
 
-4. **Reboot to activate Tesla drivers:**
+4. **MOK Enrollment (Secure Boot only):**
+   
+   If you used `--secure-boot`, after reboot a **blue MOK Manager screen** will appear:
+   
+   ```
+   1. Select "Enroll MOK"
+   2. Select "Continue"
+   3. Select "Yes"
+   4. Enter the password you set during installation
+   5. Select "Reboot"
+   ```
+   
+   **Important:** This is a one-time process. The password is only used for this enrollment.
+
+5. **Reboot to activate Tesla drivers:**
    ```bash
    sudo systemctl reboot
    ```
+   
+   After the second reboot (post-MOK enrollment), the signed NVIDIA modules will load successfully.
 
 ### Step 9: Verify Tesla Driver Installation
 
