@@ -252,13 +252,24 @@ install_tesla_drivers() {
             # Remove consumer drivers first
             echo "Removing consumer NVIDIA drivers..."
             rpm-ostree uninstall kmod-nvidia xorg-x11-drv-nvidia-cuda || echo "Consumer drivers not installed"
+            
+            # Remove akmod packages if present (they don't work on rpm-ostree)
+            echo "Removing any akmod packages (not compatible with rpm-ostree)..."
+            rpm-ostree uninstall akmod-nvidia akmod-nvidia-tesla || echo "No akmod packages to remove"
 
             # Install Tesla drivers + utilities in dependency-friendly order
             echo "Installing Tesla drivers and utilities..."
+            
+            # On rpm-ostree/bootc systems, we ONLY install kmod packages, NOT akmod
+            # Akmod doesn't work on immutable systems because it can't write to /usr/lib/modules
             local install_rpms=("$common_rpm")
+            
+            # Skip akmod on rpm-ostree systems - only use kmod
             if [ -n "$akmod_rpm" ]; then
-                install_rpms+=("$akmod_rpm")
+                echo "Note: Skipping akmod package (not compatible with rpm-ostree)"
+                echo "      Using kernel-specific kmod packages instead"
             fi
+            
             install_rpms+=("${kmod_rpms[@]}" "$utils_rpm")
 
             rpm-ostree install "${install_rpms[@]}"
