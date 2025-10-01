@@ -94,10 +94,38 @@ if [ "$SIGN_MODULES" = "1" ]; then
             echo "Failed to install Secure Boot tools"; exit 1; }
     fi
     # Ensure kernel-devel present (for sign-file)
-    if [ ! -x "/usr/src/kernels/$(uname -r)/scripts/sign-file" ]; then
-        echo "sign-file not found; installing kernel-devel live"
-        rpm-ostree install --apply-live kernel-devel || {
-            echo "Failed to install kernel-devel"; exit 1; }
+    KERNEL_VERSION=$(uname -r)
+    SIGN_FILE_PATH="/usr/src/kernels/$KERNEL_VERSION/scripts/sign-file"
+    
+    if [ ! -x "$SIGN_FILE_PATH" ]; then
+        echo "sign-file not found at $SIGN_FILE_PATH"
+        echo "Installing kernel-devel package..."
+        
+        if rpm-ostree install --apply-live kernel-devel; then
+            echo "kernel-devel installed"
+            
+            # Verify sign-file now exists
+            if [ ! -x "$SIGN_FILE_PATH" ]; then
+                echo ""
+                echo "❌ ERROR: sign-file still not available after kernel-devel installation"
+                echo "This can happen on rpm-ostree systems where --apply-live doesn't"
+                echo "immediately populate /usr/src/kernels."
+                echo ""
+                echo "SOLUTION:"
+                echo "1. The kernel-devel package has been staged"
+                echo "2. Reboot to activate it: sudo systemctl reboot"
+                echo "3. After reboot, run this command again:"
+                echo "   sudo ludos-tesla-setup install-tesla --secure-boot <driver.run>"
+                echo ""
+                exit 1
+            fi
+            echo "✅ sign-file is now available at $SIGN_FILE_PATH"
+        else
+            echo "Failed to install kernel-devel"
+            exit 1
+        fi
+    else
+        echo "✅ sign-file found at $SIGN_FILE_PATH"
     fi
     # Create persistent MOK if missing
     MOK_NEWLY_CREATED=false

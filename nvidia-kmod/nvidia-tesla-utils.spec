@@ -1,7 +1,7 @@
 Name:           nvidia-tesla-utils
 Epoch:          1
 Version:        580.82.07
-Release:        9.ludos%{?dist}
+Release:        10.ludos%{?dist}
 Summary:        NVIDIA Tesla datacenter driver user-space utilities
 
 License:        Redistributable, no modification permitted
@@ -270,6 +270,10 @@ done
 %{_unitdir}/nvidia-device-setup.service
 
 %changelog
+* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-10.ludos
+- Bump Release to match nvidia-tesla-kmod.spec for version consistency
+- Version bump per NVIDIA driver workflow policy
+
 * Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-9.ludos
 - Bump Release to match nvidia-tesla-kmod.spec for version consistency
 - Align with module signing enhancements
