@@ -27,11 +27,27 @@ echo "Configuring kernel parameters..."
 # Add NVIDIA-specific kernel parameters only
 # Don't override the entire kernel command line for bootc systems
 mkdir -p /etc/kernel
-echo "nvidia_drm.modeset=1" > /etc/kernel/cmdline
+echo "nvidia_drm.modeset=1 rd.driver.blacklist=nouveau modprobe.blacklist=nouveau" > /etc/kernel/cmdline
 
 # Configure GRUB for traditional systems as fallback
 mkdir -p /etc/default
-echo 'GRUB_CMDLINE_LINUX_DEFAULT="nvidia_drm.modeset=1"' >> /etc/default/grub
+echo 'GRUB_CMDLINE_LINUX_DEFAULT="nvidia_drm.modeset=1 rd.driver.blacklist=nouveau modprobe.blacklist=nouveau"' >> /etc/default/grub
+
+# Blacklist nouveau driver (conflicts with proprietary NVIDIA)
+echo "Blacklisting nouveau driver..."
+mkdir -p /etc/modprobe.d
+cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
+# LudOS: Blacklist nouveau to prevent conflicts with NVIDIA proprietary drivers
+blacklist nouveau
+options nouveau modeset=0
+EOF
+
+# Prevent nouveau from loading in initramfs
+mkdir -p /etc/dracut.conf.d
+cat > /etc/dracut.conf.d/blacklist-nouveau.conf << 'EOF'
+# LudOS: Prevent nouveau from loading in early boot
+omit_drivers+=" nouveau "
+EOF
 
 # Disable problematic services at build time
 systemctl mask systemd-remount-fs.service || true
@@ -172,6 +188,7 @@ cp /ctx/ludos-setup.sh /etc/ludos/
 cp /ctx/nvidia-driver-install.sh /etc/ludos/
 cp /ctx/ludos-sunshine-setup /usr/local/bin/
 cp /ctx/ludos-tesla-setup /usr/local/bin/
+cp /ctx/ludos-tesla-rebuild-modules /usr/local/bin/
 
 # Copy nvidia-kmod directory if it exists
 if [ -d /ctx/nvidia-kmod ]; then
@@ -184,6 +201,7 @@ chmod +x /etc/ludos/ludos-setup.sh
 chmod +x /etc/ludos/nvidia-driver-install.sh
 chmod +x /usr/local/bin/ludos-sunshine-setup
 chmod +x /usr/local/bin/ludos-tesla-setup
+chmod +x /usr/local/bin/ludos-tesla-rebuild-modules
 
 # Make Tesla build script executable if it exists
 if [ -f /etc/ludos/nvidia-kmod/build-tesla-kmod.sh ]; then

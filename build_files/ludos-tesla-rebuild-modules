@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# LudOS Tesla Module Rebuild Helper
+# Forces akmod to rebuild Tesla kernel modules
+
+set -euo pipefail
+
+if [ "$EUID" -ne 0 ]; then
+    echo "ERROR: This script must be run as root (use sudo)"
+    exit 1
+fi
+
+echo "=== LudOS Tesla Module Rebuild ==="
+echo ""
+
+# Check if akmod-nvidia-tesla is installed
+if ! rpm -q akmod-nvidia-tesla >/dev/null 2>&1; then
+    echo "ERROR: akmod-nvidia-tesla is not installed"
+    exit 1
+fi
+
+KERNEL_VERSION=$(uname -r)
+echo "Current kernel: $KERNEL_VERSION"
+echo ""
+
+# Force akmod rebuild
+echo "Forcing akmod rebuild for Tesla drivers..."
+akmods --force --kernels "$KERNEL_VERSION"
+
+echo ""
+echo "Checking for built modules..."
+if ls /usr/lib/modules/$KERNEL_VERSION/extra/nvidia-tesla/*.ko* >/dev/null 2>&1; then
+    echo "✅ Modules found:"
+    ls -lh /usr/lib/modules/$KERNEL_VERSION/extra/nvidia-tesla/
+    
+    echo ""
+    echo "Regenerating module dependencies..."
+    depmod -a
+    
+    echo ""
+    echo "Attempting to load nvidia module..."
+    if modprobe nvidia; then
+        echo "✅ nvidia module loaded successfully!"
+        modprobe nvidia-drm
+        modprobe nvidia-modeset
+        modprobe nvidia-uvm
+        
+        echo ""
+        echo "Loaded modules:"
+        lsmod | grep nvidia
+        
+        echo ""
+        echo "Testing nvidia-smi..."
+        nvidia-smi
+    else
+        echo "❌ Failed to load nvidia module"
+        echo "Check dmesg for errors:"
+        dmesg | tail -20 | grep -i nvidia
+    fi
+else
+    echo "❌ ERROR: Modules not found after build"
+    echo "Checking build logs..."
+    ls -la /var/cache/akmods/nvidia-tesla/ 2>/dev/null || echo "No build logs found"
+    
+    echo ""
+    echo "Akmod may have failed to build. Checking system logs:"
+    journalctl -u akmods.service --no-pager | tail -50
+fi

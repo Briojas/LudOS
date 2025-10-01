@@ -262,11 +262,34 @@ install_tesla_drivers() {
             install_rpms+=("${kmod_rpms[@]}" "$utils_rpm")
 
             rpm-ostree install "${install_rpms[@]}"
+            
+            # On rpm-ostree systems, kernel modules are integrated into the next deployment
+            # We need to apply the changes to make them active
+            echo ""
+            echo "Integrating kernel modules into rpm-ostree deployment..."
+            echo "This may take a few minutes..."
+            
+            # Configure kernel parameters for NVIDIA
+            echo "Configuring kernel parameters for NVIDIA drivers..."
+            
+            # Blacklist nouveau and enable nvidia modeset
+            rpm-ostree kargs \
+                --append-if-missing=nvidia-drm.modeset=1 \
+                --append-if-missing=rd.driver.blacklist=nouveau \
+                --append-if-missing=modprobe.blacklist=nouveau \
+                --append-if-missing=rd.driver.pre=nvidia || true
+            
+            # Create modprobe blacklist for nouveau
+            echo "Blacklisting nouveau driver..."
+            cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
+# LudOS: Blacklist nouveau to prevent conflicts with NVIDIA proprietary drivers
+blacklist nouveau
+options nouveau modeset=0
+EOF
 
             # Ensure device nodes are created this boot
             systemctl daemon-reload || true
-            systemctl enable --now nvidia-device-setup.service 2>/dev/null || true
-            command -v nvidia-modprobe >/dev/null 2>&1 && nvidia-modprobe -u -c=0 || true
+            systemctl enable nvidia-device-setup.service 2>/dev/null || true
 
             # Install any additional Tesla RPMs (if present)
             if [ ${#other_rpms[@]} -gt 0 ]; then

@@ -13,7 +13,7 @@ Name:          nvidia-tesla-kmod
 Epoch:         1
 Version:       580.82.07
 # Taken over by kmodtool
-Release:       5.ludos%{?dist}
+Release:       6.ludos%{?dist}
 Summary:       NVIDIA Tesla datacenter driver kernel module
 License:       Redistributable, no modification permitted
 URL:           https://www.nvidia.com/
@@ -169,6 +169,12 @@ echo "Module signing not requested (no mok_key defined)"
 %{?akmod_install}
 
 %changelog
+* Tue Sep 30 2025 LudOS Project <ludos@example.com> - 1:580.82.07-6.ludos
+- Add nouveau driver blacklisting to prevent GPU conflicts
+- Configure kernel parameters to blacklist nouveau in early boot
+- Add dracut configuration to omit nouveau from initramfs
+- Version bump per NVIDIA driver workflow policy
+
 * Tue Sep 30 2025 LudOS Project <ludos@example.com> - 1:580.82.07-5.ludos
 - Add automatic MOK enrollment staging with mokutil --import
 - Implement interactive password prompt for MOK enrollment
