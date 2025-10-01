@@ -1,12 +1,18 @@
 [Unit]
 Description=Create NVIDIA device nodes
 DefaultDependencies=no
-After=systemd-modules-load.service
+After=systemd-modules-load.service systemd-udev-settle.service
 Before=multi-user.target
+# Only run if nvidia module is loaded
+ConditionPathExists=/sys/module/nvidia
 
 [Service]
 Type=oneshot
+# Wait briefly for driver initialization
+ExecStartPre=/usr/bin/sleep 2
 ExecStart=/usr/bin/nvidia-modprobe -u -c=0
+# Verify device nodes were created
+ExecStartPost=/usr/bin/sh -c 'test -e /dev/nvidia0 || exit 1'
 RemainAfterExit=yes
 
 [Install]

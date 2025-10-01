@@ -30,12 +30,50 @@ echo "Configuring Sunshine streaming server..."
 if [ -f /usr/bin/sunshine ]; then
     echo "Sunshine found, configuring service..."
     
-    # Ensure capabilities are set (in case they weren't set during build)
-    setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
+    # On rpm-ostree, capabilities must be set by the package itself (can't modify /usr)
+    # Check if we're on a mutable system before trying setcap
+    if [ ! -f /run/ostree-booted ]; then
+        setcap cap_sys_admin+ep /usr/bin/sunshine || echo "Warning: Could not set capabilities for Sunshine"
+    else
+        echo "Note: Running on rpm-ostree - capabilities should be set by package"
+    fi
     
     # Create Sunshine configuration directory
     mkdir -p /etc/sunshine
     chown -R sunshine:sunshine /etc/sunshine 2>/dev/null || echo "Note: sunshine user not found, will be created on first run"
+    
+    # Create systemd service if it doesn't exist
+    if [ ! -f /etc/systemd/system/sunshine.service ]; then
+        echo "Creating Sunshine systemd service..."
+        cat > /etc/systemd/system/sunshine.service << 'SUNEOF'
+[Unit]
+Description=Sunshine Streaming Server
+Wants=network-online.target ludos-gamescope.service
+After=network-online.target ludos-gamescope.service
+
+[Service]
+Type=simple
+User=ludos
+Group=ludos
+# Provide display environment - use Gamescope's display
+Environment=HOME=/var/home/ludos
+Environment=DISPLAY=:1
+Environment=WAYLAND_DISPLAY=wayland-1
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/usr/bin/sunshine
+Restart=on-failure
+RestartSec=5s
+# Required capabilities for GPU access and input capture
+AmbientCapabilities=CAP_SYS_ADMIN CAP_SYS_NICE CAP_IPC_LOCK
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_NICE CAP_IPC_LOCK
+# Grant access to DRI devices
+SupplementaryGroups=video render input
+
+[Install]
+WantedBy=multi-user.target
+SUNEOF
+        systemctl daemon-reload
+    fi
     
     echo "Sunshine configuration completed"
 else
@@ -83,15 +121,22 @@ EOF
 cat > /etc/systemd/system/ludos-gamescope.service << 'EOF'
 [Unit]
 Description=LudOS Gamescope Virtual Display
-After=graphical.target nvidia-gridd.service
-Wants=nvidia-gridd.service
+After=graphical.target nvidia-gridd.service nvidia-device-setup.service
+Wants=nvidia-gridd.service nvidia-device-setup.service
+Requires=nvidia-device-setup.service
 
 [Service]
 Type=simple
 User=ludos
 Group=ludos
 Environment=DISPLAY=:1
-ExecStart=/usr/bin/gamescope --backend drm --prefer-vk-device /dev/dri/renderD128 --force-grab-cursor --xwayland-count 1 --default-touch-mode 4 --hide-cursor-delay 3000 --fade-out-duration 200 -- steam -gamepadui
+# Force NVIDIA GPU selection (card1, not card0 which is Proxmox VGA)
+Environment=DRI_PRIME=1
+Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
+Environment=__VK_LAYER_NV_optimus=NVIDIA_only
+Environment=VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
+# Use NVIDIA render node
+ExecStart=/usr/bin/gamescope --backend drm --prefer-vk-device /dev/dri/card1 --force-grab-cursor --xwayland-count 1 --default-touch-mode 4 --hide-cursor-delay 3000 --fade-out-duration 200 -- steam -gamepadui
 Restart=always
 RestartSec=5
 

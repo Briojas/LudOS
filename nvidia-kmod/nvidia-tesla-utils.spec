@@ -1,7 +1,7 @@
 Name:           nvidia-tesla-utils
 Epoch:          1
 Version:        580.82.07
-Release:        6.ludos%{?dist}
+Release:        7.ludos%{?dist}
 Summary:        NVIDIA Tesla datacenter driver user-space utilities
 
 License:        Redistributable, no modification permitted
@@ -23,9 +23,9 @@ Requires(preun): systemd
 Requires(postun): systemd
 
 %description
-User-space utilities and libraries from the NVIDIA Tesla %{version} datacenter driver.
-Provides the `nvidia-smi` tool and supporting NVML libraries required to
-interact with Tesla GPUs on LudOS.
+Complete user-space libraries and utilities from the NVIDIA Tesla %{version} datacenter driver.
+Provides OpenGL, Vulkan, EGL, X.org driver, nvidia-smi, and all supporting libraries
+required for graphics rendering and compute with Tesla GPUs on LudOS.
 
 %prep
 %setup -q -n nvidia-tesla-driver-%{version}
@@ -35,9 +35,18 @@ rm -rf %{buildroot}
 
 install -d %{buildroot}%{_bindir}
 install -d %{buildroot}%{_libdir}
+install -d %{buildroot}%{_libdir}/xorg/modules/drivers
+install -d %{buildroot}%{_libdir}/xorg/modules/extensions
+install -d %{buildroot}%{_libdir}/vdpau
+install -d %{buildroot}%{_libdir}/gbm
+install -d %{buildroot}%{_datadir}/vulkan/icd.d
+install -d %{buildroot}%{_datadir}/vulkan/implicit_layer.d
+install -d %{buildroot}%{_datadir}/glvnd/egl_vendor.d
+install -d %{buildroot}%{_datadir}/egl/egl_external_platform.d
 install -d %{buildroot}%{_datadir}/doc/%{name}
 install -d %{buildroot}%{_datadir}/licenses/%{name}
 install -d %{buildroot}%{_sysconfdir}/nvidia
+install -d %{buildroot}%{_sysconfdir}/OpenCL/vendors
 install -d %{buildroot}%{_unitdir}
 
 # Binaries (Tesla .run places these at top-level rather than usr/bin)
@@ -71,18 +80,124 @@ fi
 # Install systemd service to create device nodes at boot
 install -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/nvidia-device-setup.service
 
-# Libraries required by nvidia-smi
-for lib in libnvidia-ml.so libnvidia-cfg.so; do
-    if compgen -G "${lib}*" >/dev/null; then
-        cp -a ${lib}* %{buildroot}%{_libdir}/
-    elif compgen -G "lib/${lib}*" >/dev/null; then
-        cp -a lib/${lib}* %{buildroot}%{_libdir}/
-    elif compgen -G "lib64/${lib}*" >/dev/null; then
-        cp -a lib64/${lib}* %{buildroot}%{_libdir}/
-    elif compgen -G "usr/lib64/${lib}*" >/dev/null; then
-        cp -a usr/lib64/${lib}* %{buildroot}%{_libdir}/
+# Function to find and install libraries from various possible locations
+install_lib() {
+    local lib=$1
+    local found=0
+    for dir in . lib lib64 usr/lib usr/lib64; do
+        if compgen -G "${dir}/${lib}*" >/dev/null 2>&1; then
+            cp -a ${dir}/${lib}* %{buildroot}%{_libdir}/
+            found=1
+            break
+        fi
+    done
+    if [ $found -eq 0 ]; then
+        echo "Warning: Library $lib not found" >&2
     fi
+}
+
+# Core NVIDIA libraries
+for lib in \
+    libnvidia-ml.so \
+    libnvidia-cfg.so \
+    libnvidia-glcore.so \
+    libnvidia-tls.so \
+    libnvidia-glsi.so \
+    libnvidia-rtcore.so \
+    libnvidia-cbl.so \
+    libnvidia-eglcore.so \
+    libnvidia-glvkspirv.so \
+    libnvidia-allocator.so \
+    libnvidia-vulkan-producer.so \
+    libnvidia-fbc.so \
+    libnvidia-encode.so \
+    libnvidia-opticalflow.so \
+    libnvidia-ngx.so \
+    libnvidia-nvvm.so \
+    libnvidia-ptxjitcompiler.so \
+    libnvidia-gpucomp.so; do
+    install_lib "$lib"
 done
+
+# OpenGL libraries
+for lib in \
+    libGLX_nvidia.so \
+    libEGL_nvidia.so \
+    libGLESv1_CM_nvidia.so \
+    libGLESv2_nvidia.so; do
+    install_lib "$lib"
+done
+
+# CUDA libraries
+for lib in \
+    libcuda.so \
+    libnvcuvid.so \
+    libnvidia-compiler.so; do
+    install_lib "$lib"
+done
+
+# OpenCL library
+install_lib "libnvidia-opencl.so"
+
+# VDPAU driver
+if compgen -G "**/libvdpau_nvidia.so*" >/dev/null 2>&1; then
+    find . -name "libvdpau_nvidia.so*" -exec cp -a {} %{buildroot}%{_libdir}/vdpau/ \;
+fi
+
+# GBM backend
+install_lib "libnvidia-egl-gbm.so"
+
+# X.org driver
+if [ -f nvidia_drv.so ]; then
+    install -m 0755 nvidia_drv.so %{buildroot}%{_libdir}/xorg/modules/drivers/
+elif [ -f usr/lib/xorg/modules/drivers/nvidia_drv.so ]; then
+    install -m 0755 usr/lib/xorg/modules/drivers/nvidia_drv.so %{buildroot}%{_libdir}/xorg/modules/drivers/
+elif [ -f usr/lib64/xorg/modules/drivers/nvidia_drv.so ]; then
+    install -m 0755 usr/lib64/xorg/modules/drivers/nvidia_drv.so %{buildroot}%{_libdir}/xorg/modules/drivers/
+fi
+
+# GLX extension for X.org
+if [ -f libglxserver_nvidia.so ]; then
+    install -m 0755 libglxserver_nvidia.so.%{version} %{buildroot}%{_libdir}/xorg/modules/extensions/ 2>/dev/null || \
+    install -m 0755 libglxserver_nvidia.so %{buildroot}%{_libdir}/xorg/modules/extensions/ 2>/dev/null || true
+elif [ -f usr/lib64/xorg/modules/extensions/libglxserver_nvidia.so.%{version} ]; then
+    install -m 0755 usr/lib64/xorg/modules/extensions/libglxserver_nvidia.so.%{version} %{buildroot}%{_libdir}/xorg/modules/extensions/
+fi
+
+# Vulkan ICD
+if [ -f nvidia_icd.json ]; then
+    install -m 0644 nvidia_icd.json %{buildroot}%{_datadir}/vulkan/icd.d/
+elif [ -f usr/share/vulkan/icd.d/nvidia_icd.json ]; then
+    install -m 0644 usr/share/vulkan/icd.d/nvidia_icd.json %{buildroot}%{_datadir}/vulkan/icd.d/
+fi
+
+# Vulkan layers
+if [ -f nvidia_layers.json ]; then
+    install -m 0644 nvidia_layers.json %{buildroot}%{_datadir}/vulkan/implicit_layer.d/
+elif [ -f usr/share/vulkan/implicit_layer.d/nvidia_layers.json ]; then
+    install -m 0644 usr/share/vulkan/implicit_layer.d/nvidia_layers.json %{buildroot}%{_datadir}/vulkan/implicit_layer.d/
+fi
+
+# EGL vendor files
+if [ -f 10_nvidia.json ]; then
+    install -m 0644 10_nvidia.json %{buildroot}%{_datadir}/glvnd/egl_vendor.d/
+elif [ -f usr/share/glvnd/egl_vendor.d/10_nvidia.json ]; then
+    install -m 0644 usr/share/glvnd/egl_vendor.d/10_nvidia.json %{buildroot}%{_datadir}/glvnd/egl_vendor.d/
+fi
+
+# EGL external platform
+if [ -f 10_nvidia_wayland.json ]; then
+    install -m 0644 10_nvidia_wayland.json %{buildroot}%{_datadir}/egl/egl_external_platform.d/
+elif [ -f usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json ]; then
+    install -m 0644 usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json %{buildroot}%{_datadir}/egl/egl_external_platform.d/
+fi
+
+# OpenCL vendor file
+if [ -f nvidia.icd ]; then
+    install -m 0644 nvidia.icd %{buildroot}%{_sysconfdir}/OpenCL/vendors/
+elif [ -f etc/OpenCL/vendors/nvidia.icd ]; then
+    install -m 0644 etc/OpenCL/vendors/nvidia.icd %{buildroot}%{_sysconfdir}/OpenCL/vendors/
+fi
 
 # Documentation / licenses
 if [ -f LICENSE ]; then
@@ -108,15 +223,58 @@ done
 %files
 %license %{_datadir}/licenses/%{name}/*
 %doc %{_datadir}/doc/%{name}/*
+
+# Binaries
 %{_bindir}/nvidia-smi
-%{_libdir}/libnvidia-ml.so*
-%{_libdir}/libnvidia-cfg.so*
 %{_bindir}/nvidia-debugdump
 %{_bindir}/nvidia-bug-report.sh
 %{_bindir}/nvidia-modprobe
+
+# Core NVIDIA libraries
+%{_libdir}/libnvidia-*.so*
+%{_libdir}/libcuda.so*
+%{_libdir}/libnvcuvid.so*
+
+# OpenGL libraries
+%{_libdir}/libGLX_nvidia.so*
+%{_libdir}/libEGL_nvidia.so*
+%{_libdir}/libGLESv1_CM_nvidia.so*
+%{_libdir}/libGLESv2_nvidia.so*
+
+# VDPAU
+%{_libdir}/vdpau/libvdpau_nvidia.so*
+
+# X.org driver and extensions
+%{_libdir}/xorg/modules/drivers/nvidia_drv.so
+%{_libdir}/xorg/modules/extensions/libglxserver_nvidia.so*
+
+# Vulkan
+%{_datadir}/vulkan/icd.d/nvidia_icd.json
+%{_datadir}/vulkan/implicit_layer.d/nvidia_layers.json
+
+# EGL
+%{_datadir}/glvnd/egl_vendor.d/10_nvidia.json
+%{_datadir}/egl/egl_external_platform.d/10_nvidia_wayland.json
+
+# GBM
+%{_libdir}/libnvidia-egl-gbm.so*
+%{_libdir}/gbm/
+
+# OpenCL
+%{_sysconfdir}/OpenCL/vendors/nvidia.icd
+
+# Systemd
 %{_unitdir}/nvidia-device-setup.service
 
 %changelog
+* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-7.ludos
+- Add complete graphics library support (OpenGL, Vulkan, EGL, X.org)
+- Package all required libraries for hardware-accelerated rendering
+- Include Vulkan ICD for GPU compute and graphics
+- Add VDPAU, GBM, and OpenCL support
+- Enable Gamescope and Sunshine hardware encoding with NVIDIA
+- Version bump per NVIDIA driver workflow policy
+
 * Tue Sep 30 2025 LudOS Project <ludos@example.com> - 1:580.82.07-6.ludos
 - Bump Release to match nvidia-tesla-kmod.spec for version consistency
 - Align with nouveau blacklisting improvements
