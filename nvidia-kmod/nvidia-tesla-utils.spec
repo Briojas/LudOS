@@ -1,7 +1,7 @@
 Name:           nvidia-tesla-utils
 Epoch:          1
 Version:        580.82.07
-Release:        7.ludos%{?dist}
+Release:        9.ludos%{?dist}
 Summary:        NVIDIA Tesla datacenter driver user-space utilities
 
 License:        Redistributable, no modification permitted
@@ -156,12 +156,16 @@ elif [ -f usr/lib64/xorg/modules/drivers/nvidia_drv.so ]; then
     install -m 0755 usr/lib64/xorg/modules/drivers/nvidia_drv.so %{buildroot}%{_libdir}/xorg/modules/drivers/
 fi
 
-# GLX extension for X.org
+# GLX extension for X.org (optional - not present in all Tesla drivers)
 if [ -f libglxserver_nvidia.so ]; then
     install -m 0755 libglxserver_nvidia.so.%{version} %{buildroot}%{_libdir}/xorg/modules/extensions/ 2>/dev/null || \
     install -m 0755 libglxserver_nvidia.so %{buildroot}%{_libdir}/xorg/modules/extensions/ 2>/dev/null || true
+    echo "GLX extension found and installed"
 elif [ -f usr/lib64/xorg/modules/extensions/libglxserver_nvidia.so.%{version} ]; then
     install -m 0755 usr/lib64/xorg/modules/extensions/libglxserver_nvidia.so.%{version} %{buildroot}%{_libdir}/xorg/modules/extensions/
+    echo "GLX extension found and installed"
+else
+    echo "Note: GLX extension not found (normal for datacenter drivers)"
 fi
 
 # Vulkan ICD
@@ -244,9 +248,8 @@ done
 # VDPAU
 %{_libdir}/vdpau/libvdpau_nvidia.so*
 
-# X.org driver and extensions
+# X.org driver (GLX extension may not be present in datacenter drivers)
 %{_libdir}/xorg/modules/drivers/nvidia_drv.so
-%{_libdir}/xorg/modules/extensions/libglxserver_nvidia.so*
 
 # Vulkan
 %{_datadir}/vulkan/icd.d/nvidia_icd.json
@@ -267,6 +270,17 @@ done
 %{_unitdir}/nvidia-device-setup.service
 
 %changelog
+* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-9.ludos
+- Bump Release to match nvidia-tesla-kmod.spec for version consistency
+- Align with module signing enhancements
+- Version bump per NVIDIA driver workflow policy
+
+* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-8.ludos
+- Make GLX extension optional (not present in datacenter Tesla drivers)
+- Fix RPM build failure when libglxserver_nvidia.so doesn't exist
+- Gracefully handle missing optional libraries
+- Version bump per NVIDIA driver workflow policy
+
 * Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-7.ludos
 - Add complete graphics library support (OpenGL, Vulkan, EGL, X.org)
 - Package all required libraries for hardware-accelerated rendering

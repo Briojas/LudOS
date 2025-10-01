@@ -13,7 +13,7 @@ Name:          nvidia-tesla-kmod
 Epoch:         1
 Version:       580.82.07
 # Taken over by kmodtool
-Release:       7.ludos%{?dist}
+Release:       9.ludos%{?dist}
 Summary:       NVIDIA Tesla datacenter driver kernel module
 License:       Redistributable, no modification permitted
 URL:           https://www.nvidia.com/
@@ -150,25 +150,66 @@ for kernel_version in %{?kernel_versions}; do
          $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
 done
 %if 0%{?mok_key:1}
-echo "Attempting to sign NVIDIA kernel modules with MOK"
+echo "=== Module Signing with MOK ==="
+echo "MOK Key: %{mok_key}"
+echo "MOK Cert: %{mok_crt}"
+
 for kernel_version in %{?kernel_versions}; do
   sign="/usr/src/kernels/${kernel_version%%___*}/scripts/sign-file"
-  if [ -x "$sign" ] && [ -f "%{mok_key}" ] && [ -f "%{mok_crt}" ]; then
-    for ko in $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/nvidia*.ko; do
-      "$sign" sha256 %{mok_key} %{mok_crt} "$ko" || exit 1
-    done
-    echo "Successfully signed modules with MOK"
-  else
-    echo "WARNING: sign-file or MOK files not found, skipping signing"
+  
+  echo "Kernel version: ${kernel_version%%___*}"
+  echo "Looking for sign-file at: $sign"
+  
+  if [ ! -x "$sign" ]; then
+    echo "ERROR: sign-file not found or not executable at $sign"
+    echo "This is required for Secure Boot. Install kernel-devel package."
     exit 1
   fi
+  
+  if [ ! -f "%{mok_key}" ]; then
+    echo "ERROR: MOK private key not found at %{mok_key}"
+    exit 1
+  fi
+  
+  if [ ! -f "%{mok_crt}" ]; then
+    echo "ERROR: MOK certificate not found at %{mok_crt}"
+    exit 1
+  fi
+  
+  echo "Signing NVIDIA modules in ${kernel_version%%___*}..."
+  for ko in $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/nvidia*.ko; do
+    if [ -f "$ko" ]; then
+      module_name=$(basename "$ko")
+      echo "  Signing: $module_name"
+      if "$sign" sha256 "%{mok_key}" "%{mok_crt}" "$ko"; then
+        echo "    ✅ Signed successfully"
+      else
+        echo "    ❌ Signing failed!"
+        exit 1
+      fi
+    fi
+  done
+  echo "✅ All modules for kernel ${kernel_version%%___*} signed successfully"
 done
 %else
-echo "Module signing not requested (no mok_key defined)"
+echo "⚠️  Module signing not requested (no mok_key defined)"
+echo "Modules will NOT be signed - Secure Boot will prevent loading!"
 %endif
 %{?akmod_install}
 
 %changelog
+* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-9.ludos
+- Enhanced module signing with verbose logging and error checking
+- Add explicit validation of sign-file, MOK key, and certificate
+- Fix Secure Boot "Key was rejected by service" error
+- Ensure signing actually runs during RPM build
+- Version bump per NVIDIA driver workflow policy
+
+* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-8.ludos
+- Bump Release to match nvidia-tesla-utils.spec for version consistency
+- Align with optional GLX extension handling in utils package
+- Version bump per NVIDIA driver workflow policy
+
 * Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-7.ludos
 - Bump Release to match nvidia-tesla-utils.spec for version consistency
 - Align with complete graphics library support in utils package
