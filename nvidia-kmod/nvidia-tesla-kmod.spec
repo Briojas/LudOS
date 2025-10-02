@@ -3,19 +3,21 @@
 # "buildforkernels newest" macro for just that build; immediately after
 # queuing that build enable the macro again for subsequent builds; that way
 # a new akmod package will only get build when a new one is actually needed
-%if 0%{?fedora}
-# LudOS: Use 'current' for bootc/rpm-ostree immutable systems
-# This builds a kmod package for the current kernel instead of akmod
-%global buildforkernels current
-%endif
+#
+# LudOS: For bootc/rpm-ostree systems, we build kmod for specific kernel version
+# The kernel version is passed via --define at build time, not via buildforkernels
+# This avoids the buildsys-build-*-kerneldevpkgs dependency issue
 %global debug_package %{nil}
 %global _kmodtool_zipmodules 0
 
 Name:          nvidia-tesla-kmod
 Epoch:         1
+# NOTE: Version is a PLACEHOLDER - overridden at build time via:
+#       rpmbuild --define "version X.Y.Z" ...
+#       The actual version comes from the NVIDIA driver filename
 Version:       580.82.07
 # Taken over by kmodtool
-Release:       11.ludos%{?dist}
+Release:       14.ludos%{?dist}
 Summary:       NVIDIA Tesla datacenter driver kernel module
 License:       Redistributable, no modification permitted
 URL:           https://www.nvidia.com/
@@ -41,7 +43,9 @@ BuildRequires:  elfutils-libelf-devel
 BuildRequires:  rpm-build
 
 # kmodtool does its magic here
-%{expand:%(kmodtool --target %{_target_cpu} --repo ludos --kmodname %{name} --filterfile %{SOURCE11} --obsolete-name nvidia-newest --obsolete-version "%{?epoch}:%{version}-%{release}" %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
+# Using --repo rpmfusion-nonfree-fedora (standard name, no metadata lookup needed with explicit kernels)
+# The --for-kernels parameter from build script takes precedence over repo metadata
+%{expand:%(kmodtool --target %{_target_cpu} --repo rpmfusion-nonfree-fedora --kmodname %{name} --filterfile %{SOURCE11} --obsolete-name nvidia-newest --obsolete-version "%{?epoch}:%{version}-%{release}" %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 # Common package for Tesla drivers (required by akmod)
 %package common
@@ -64,8 +68,8 @@ Includes LudOS-specific optimizations for headless gaming and virtual display su
 # error out if there was something wrong with kmodtool
 %{?kmodtool_check}
 
-# print kmodtool output for debugging purposes:
-kmodtool  --target %{_target_cpu}  --repo ludos --kmodname %{name} --filterfile %{SOURCE11} --obsolete-name nvidia-newest --obsolete-version "%{?epoch}:%{version}-%{release}" %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null
+# Debug kmodtool output removed - caused issues without --repo parameter
+# The package metadata is already generated correctly by the %expand macro above
 
 %setup -T -c
 
@@ -256,6 +260,23 @@ echo ""
 %{?akmod_install}
 
 %changelog
+* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-14.ludos
+- Fix kmodtool --repo requirement (required parameter, use standard rpmfusion name)
+- Remove debug kmodtool print in %prep that caused build failure
+- Explicit --for-kernels from build script overrides repo metadata lookup
+- Version bump per NVIDIA driver workflow policy
+
+* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-13.ludos
+- Remove --repo parameter from kmodtool invocations (fixes buildsys metadata error)
+- Allow kmodtool to work with explicit --for-kernels parameter only
+- Version bump per NVIDIA driver workflow policy
+
+* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-12.ludos
+- Fix kmodtool buildsys-build-ludos-kerneldevpkgs error
+- Remove buildforkernels macro, use explicit kernel version from build script
+- Proper kmod build for bootc/rpm-ostree immutable systems
+- Version bump per NVIDIA driver workflow policy
+
 * Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-11.ludos
 - CRITICAL FIX: Change from akmod to kmod for bootc/rpm-ostree systems
 - Enhanced module signing with comprehensive error checking and verification

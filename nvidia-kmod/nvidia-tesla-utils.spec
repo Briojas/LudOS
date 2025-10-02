@@ -1,7 +1,10 @@
 Name:           nvidia-tesla-utils
 Epoch:          1
+# NOTE: Version is a PLACEHOLDER - overridden at build time via:
+#       rpmbuild --define "version X.Y.Z" ...
+#       The actual version comes from the NVIDIA driver filename
 Version:        580.82.07
-Release:        11.ludos%{?dist}
+Release:        14.ludos%{?dist}
 Summary:        NVIDIA Tesla datacenter driver user-space utilities
 
 License:        Redistributable, no modification permitted
@@ -270,6 +273,19 @@ done
 %{_unitdir}/nvidia-device-setup.service
 
 %changelog
+* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-14.ludos
+- Bump Release to match nvidia-tesla-kmod.spec (kmodtool --repo requirement fix)
+- Version bump per NVIDIA driver workflow policy
+
+* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-13.ludos
+- Bump Release to match nvidia-tesla-kmod.spec (kmodtool --repo fix)
+- Version bump per NVIDIA driver workflow policy
+
+* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-12.ludos
+- Bump Release to match nvidia-tesla-kmod.spec (kmodtool fix release)
+- Align with explicit kernel version build approach
+- Version bump per NVIDIA driver workflow policy
+
 * Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-11.ludos
 - Bump Release to match nvidia-tesla-kmod.spec (kmod fix release)
 - Align with akmod→kmod transition for bootc/rpm-ostree compatibility

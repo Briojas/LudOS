@@ -8,6 +8,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LUDOS_ROOT="$(dirname "$SCRIPT_DIR")"
+# TESLA_VERSION is normally set by ludos-tesla-setup from the driver filename
+# Default is only used if this script is run directly (not recommended)
 TESLA_VERSION="${TESLA_VERSION:-580.82.07}"
 BUILD_DIR="${BUILD_DIR:-$SCRIPT_DIR/build}"
 SIGN_MODULES="${SIGN_MODULES:-0}"
@@ -188,7 +190,13 @@ fi
 
 # Copy spec files and patches
 echo "Copying spec files and patches..."
-cp "$SCRIPT_DIR/nvidia-tesla-kmod.spec" "$BUILD_DIR/SPECS/"
+# Use simplified spec that doesn't require kmodtool metadata
+if [ -f "$SCRIPT_DIR/nvidia-tesla-kmod-simple.spec" ]; then
+    echo "Using simplified kmod spec (no kmodtool dependency)"
+    cp "$SCRIPT_DIR/nvidia-tesla-kmod-simple.spec" "$BUILD_DIR/SPECS/nvidia-tesla-kmod.spec"
+else
+    cp "$SCRIPT_DIR/nvidia-tesla-kmod.spec" "$BUILD_DIR/SPECS/"
+fi
 cp "$SCRIPT_DIR/nvidia-tesla-utils.spec" "$BUILD_DIR/SPECS/"
 cp "$SCRIPT_DIR/nvidia-kmodtool-excludekernel-filterfile" "$BUILD_DIR/SOURCES/"
 cp "$SCRIPT_DIR/make_modeset_default.patch" "$BUILD_DIR/SOURCES/"
@@ -273,6 +281,7 @@ fi
 
 if rpmbuild --define "_topdir $BUILD_DIR" \
          --define "version $TESLA_VERSION" \
+         --define "kernels $KERNEL_VERSION" \
          --define "kernel_version $KERNEL_VERSION" \
          --define "kernel_release $KERNEL_RELEASE" \
          --define "kernel_base $KERNEL_BASE" \
