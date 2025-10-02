@@ -4,7 +4,9 @@
 # queuing that build enable the macro again for subsequent builds; that way
 # a new akmod package will only get build when a new one is actually needed
 %if 0%{?fedora}
-%global buildforkernels akmod
+# LudOS: Use 'current' for bootc/rpm-ostree immutable systems
+# This builds a kmod package for the current kernel instead of akmod
+%global buildforkernels current
 %endif
 %global debug_package %{nil}
 %global _kmodtool_zipmodules 0
@@ -13,7 +15,7 @@ Name:          nvidia-tesla-kmod
 Epoch:         1
 Version:       580.82.07
 # Taken over by kmodtool
-Release:       10.ludos%{?dist}
+Release:       11.ludos%{?dist}
 Summary:       NVIDIA Tesla datacenter driver kernel module
 License:       Redistributable, no modification permitted
 URL:           https://www.nvidia.com/
@@ -144,60 +146,123 @@ for kernel_version in %{?kernel_versions}; do
 done
 
 %install
+# Install kernel modules
 for kernel_version in %{?kernel_versions}; do
     mkdir -p  $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
     install -D -m 0755 _kmod_build_${kernel_version%%___*}/nvidia*.ko \
          $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
 done
+
+# Sign modules if MOK key is provided (for Secure Boot)
 %if 0%{?mok_key:1}
+echo ""
+echo "========================================"
 echo "=== Module Signing with MOK ==="
+echo "========================================"
 echo "MOK Key: %{mok_key}"
 echo "MOK Cert: %{mok_crt}"
+echo ""
+
+# Verify signing prerequisites
+KERNEL_VERSIONS_LIST="%{?kernel_versions}"
+if [ -z "$KERNEL_VERSIONS_LIST" ]; then
+  echo "❌ ERROR: kernel_versions is empty! Cannot sign modules."
+  echo "This likely means kmodtool didn't generate kernel version list."
+  exit 1
+fi
+
+echo "Kernel versions to sign: $KERNEL_VERSIONS_LIST"
+echo ""
 
 for kernel_version in %{?kernel_versions}; do
-  sign="/usr/src/kernels/${kernel_version%%___*}/scripts/sign-file"
+  KERN_VER="${kernel_version%%___*}"
+  MODULE_DIR="$RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${KERN_VER}/%{kmodinstdir_postfix}"
   
-  echo "Kernel version: ${kernel_version%%___*}"
-  echo "Looking for sign-file at: $sign"
+  echo "=== Signing modules for kernel: $KERN_VER ==="
   
-  if [ ! -x "$sign" ]; then
-    echo "ERROR: sign-file not found or not executable at $sign"
+  # Find sign-file
+  SIGN_FILE="/usr/src/kernels/${KERN_VER}/scripts/sign-file"
+  echo "Looking for sign-file at: $SIGN_FILE"
+  
+  if [ ! -x "$SIGN_FILE" ]; then
+    echo "❌ ERROR: sign-file not found or not executable at $SIGN_FILE"
     echo "This is required for Secure Boot. Install kernel-devel package."
     exit 1
   fi
+  echo "✅ Found sign-file"
   
+  # Verify MOK files
   if [ ! -f "%{mok_key}" ]; then
-    echo "ERROR: MOK private key not found at %{mok_key}"
+    echo "❌ ERROR: MOK private key not found at %{mok_key}"
     exit 1
   fi
+  echo "✅ Found MOK key: %{mok_key}"
   
   if [ ! -f "%{mok_crt}" ]; then
-    echo "ERROR: MOK certificate not found at %{mok_crt}"
+    echo "❌ ERROR: MOK certificate not found at %{mok_crt}"
     exit 1
   fi
+  echo "✅ Found MOK cert: %{mok_crt}"
   
-  echo "Signing NVIDIA modules in ${kernel_version%%___*}..."
-  for ko in $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/nvidia*.ko; do
+  # Sign each module
+  echo "Module directory: $MODULE_DIR"
+  MODULE_COUNT=0
+  for ko in "$MODULE_DIR"/nvidia*.ko; do
     if [ -f "$ko" ]; then
+      MODULE_COUNT=$((MODULE_COUNT + 1))
       module_name=$(basename "$ko")
-      echo "  Signing: $module_name"
-      if "$sign" sha256 "%{mok_key}" "%{mok_crt}" "$ko"; then
-        echo "    ✅ Signed successfully"
+      echo ""
+      echo "  📝 Signing: $module_name"
+      echo "     Path: $ko"
+      
+      if "$SIGN_FILE" sha256 "%{mok_key}" "%{mok_crt}" "$ko"; then
+        echo "     ✅ Signed successfully"
+        
+        # Verify signature
+        if modinfo "$ko" | grep -q "sig_id"; then
+          echo "     ✅ Signature verified in module"
+        else
+          echo "     ⚠️  Warning: Could not verify signature (modinfo might not work in buildroot)"
+        fi
       else
-        echo "    ❌ Signing failed!"
+        echo "     ❌ Signing FAILED!"
         exit 1
       fi
     fi
   done
-  echo "✅ All modules for kernel ${kernel_version%%___*} signed successfully"
+  
+  if [ $MODULE_COUNT -eq 0 ]; then
+    echo "❌ ERROR: No NVIDIA modules found in $MODULE_DIR"
+    exit 1
+  fi
+  
+  echo ""
+  echo "✅ Successfully signed $MODULE_COUNT modules for kernel $KERN_VER"
+  echo ""
 done
+
+echo "========================================"
+echo "✅ All modules signed successfully!"
+echo "========================================"
+echo ""
 %else
-echo "⚠️  Module signing not requested (no mok_key defined)"
-echo "Modules will NOT be signed - Secure Boot will prevent loading!"
+echo ""
+echo "⚠️  WARNING: Module signing not requested (no mok_key defined)"
+echo "⚠️  Modules will NOT be signed - Secure Boot will prevent loading!"
+echo "⚠️  Use --define 'mok_key /path/to/key' to enable signing"
+echo ""
 %endif
+
 %{?akmod_install}
 
 %changelog
+* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-11.ludos
+- CRITICAL FIX: Change from akmod to kmod for bootc/rpm-ostree systems
+- Enhanced module signing with comprehensive error checking and verification
+- Fix empty kernel_versions causing unsigned modules
+- Add detailed signing output for troubleshooting
+- Version bump per NVIDIA driver workflow policy
+
 * Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-10.ludos
 - Bump Release to align with build script improvements
 - Version bump per NVIDIA driver workflow policy
