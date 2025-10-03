@@ -241,24 +241,24 @@ done
 %{_libdir}/libGLESv1_CM_nvidia.so*
 %{_libdir}/libGLESv2_nvidia.so*
 
-# VDPAU
+# VDPAU (optional for Tesla)
+%dir %{_libdir}/vdpau
 %{_libdir}/vdpau/libvdpau_nvidia.so*
 
-# X.org driver and extensions
+# X.org driver (present in Tesla drivers for compatibility)
 %{_libdir}/xorg/modules/drivers/nvidia_drv.so
-%{_libdir}/xorg/modules/extensions/libglxserver_nvidia.so*
 
-# Vulkan
+# Vulkan (required for Gamescope)
 %{_datadir}/vulkan/icd.d/nvidia_icd.json
 %{_datadir}/vulkan/implicit_layer.d/nvidia_layers.json
 
-# EGL
+# EGL (required for Gamescope)
 %{_datadir}/glvnd/egl_vendor.d/10_nvidia.json
 %{_datadir}/egl/egl_external_platform.d/10_nvidia_wayland.json
 
-# GBM
+# GBM (required for Gamescope)
 %{_libdir}/libnvidia-egl-gbm.so*
-%{_libdir}/gbm/
+%dir %{_libdir}/gbm
 
 # OpenCL
 %{_sysconfdir}/OpenCL/vendors/nvidia.icd
