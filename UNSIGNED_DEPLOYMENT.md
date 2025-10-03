@@ -196,6 +196,33 @@ sudo systemctl reboot
 sudo ludos-tesla-setup install-tesla ~/NVIDIA-Linux-x86_64-580.82.07.run
 ```
 
+### Issue: nvidia-smi fails with "couldn't communicate with driver"
+
+This means device nodes weren't created automatically:
+
+```bash
+# Check if device nodes exist
+ls -la /dev/nvidia*
+
+# If missing /dev/nvidia0 or /dev/nvidiactl, create them manually:
+sudo mknod -m 666 /dev/nvidiactl c 195 255
+sudo mknod -m 666 /dev/nvidia0 c 195 0
+sudo mknod -m 666 /dev/nvidia-modeset c 195 254
+
+# Or use nvidia-modprobe
+sudo nvidia-modprobe -c 0
+sudo nvidia-modprobe -u
+
+# Test nvidia-smi
+nvidia-smi
+
+# Fix the service for next boot
+sudo systemctl restart nvidia-device-setup.service
+sudo systemctl status nvidia-device-setup.service
+```
+
+**Root cause:** The nvidia-device-setup.service needs to create both primary device nodes (`-c 0`) and UVM nodes (`-u`). This is fixed in the latest version.
+
 ### Issue: GPU not detected after Tesla driver install
 
 ```bash

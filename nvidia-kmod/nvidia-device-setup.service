@@ -10,9 +10,12 @@ ConditionPathExists=/sys/module/nvidia
 Type=oneshot
 # Wait briefly for driver initialization
 ExecStartPre=/usr/bin/sleep 2
-ExecStart=/usr/bin/nvidia-modprobe -u -c=0
+# Create primary NVIDIA device nodes (nvidiactl, nvidia0, nvidia-modeset)
+ExecStart=/usr/bin/nvidia-modprobe -c 0
+# Create UVM device nodes
+ExecStart=/usr/bin/nvidia-modprobe -u
 # Verify device nodes were created
-ExecStartPost=/usr/bin/sh -c 'test -e /dev/nvidia0 || exit 1'
+ExecStartPost=/usr/bin/sh -c 'test -e /dev/nvidia0 && test -e /dev/nvidiactl || exit 1'
 RemainAfterExit=yes
 
 [Install]

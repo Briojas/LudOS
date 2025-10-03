@@ -48,8 +48,8 @@ if [ -f /usr/bin/sunshine ]; then
         cat > /etc/systemd/system/sunshine.service << 'SUNEOF'
 [Unit]
 Description=Sunshine Streaming Server
-Wants=network-online.target ludos-gamescope.service
 After=network-online.target ludos-gamescope.service
+Wants=network-online.target ludos-gamescope.service
 
 [Service]
 Type=simple
@@ -70,7 +70,7 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_NICE CAP_IPC_LOCK
 SupplementaryGroups=video render input
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target
 SUNEOF
         systemctl daemon-reload
     fi
@@ -121,7 +121,7 @@ EOF
 cat > /etc/systemd/system/ludos-gamescope.service << 'EOF'
 [Unit]
 Description=LudOS Gamescope Virtual Display
-After=graphical.target nvidia-gridd.service nvidia-device-setup.service
+After=nvidia-gridd.service nvidia-device-setup.service
 Wants=nvidia-gridd.service nvidia-device-setup.service
 Requires=nvidia-device-setup.service
 
