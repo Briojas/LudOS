@@ -29,12 +29,12 @@ Source101:     nvidia-kmod-noopen-pciids.txt
 ExclusiveArch:  x86_64
 
 BuildRequires:  gcc, make
-BuildRequires:  kernel-devel = %{kernel_version}
+BuildRequires:  kernel-devel
 BuildRequires:  kernel-headers
 BuildRequires:  elfutils-libelf-devel
 
 Requires:       nvidia-tesla-kmod-common = %{epoch}:%{version}-%{release}
-Requires:       kernel = %{kernel_version}
+# Kernel dependency is implicit - modules go in /lib/modules/%{kernel_version}
 
 Provides:       kmod-nvidia-tesla-%{kernel_version} = %{epoch}:%{version}-%{release}
 

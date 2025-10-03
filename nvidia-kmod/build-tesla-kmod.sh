@@ -56,12 +56,29 @@ if [ ${#ESSENTIAL_MISSING[@]} -gt 0 ]; then
 fi
 
 # Check for kernel development packages (these are the most likely to be missing)
+KERNEL_VERSION=$(uname -r)
 KERNEL_MISSING=()
+
+# Check if kernel-devel is installed
 if ! rpm -q kernel-devel >/dev/null 2>&1; then
     KERNEL_MISSING+=("kernel-devel")
 fi
+
+# Check if kernel-headers is installed
 if ! rpm -q kernel-headers >/dev/null 2>&1; then
     KERNEL_MISSING+=("kernel-headers")
+fi
+
+# More importantly, check if kernel sources exist for the RUNNING kernel
+KERNEL_SRC="/usr/src/kernels/$KERNEL_VERSION"
+if [ ! -d "$KERNEL_SRC" ]; then
+    echo "⚠️  WARNING: Kernel sources not found for running kernel $KERNEL_VERSION"
+    echo "   Expected at: $KERNEL_SRC"
+    if [ ${#KERNEL_MISSING[@]} -eq 0 ]; then
+        echo "   kernel-devel is installed, but for a different kernel version"
+        echo "   This usually means the kernel was recently updated"
+        KERNEL_MISSING+=("kernel-devel")
+    fi
 fi
 
 # Install only kernel packages if missing (avoid rpm-ostree conflicts)
@@ -70,9 +87,24 @@ if [ ${#KERNEL_MISSING[@]} -gt 0 ]; then
     echo "Installing via rpm-ostree..."
     rpm-ostree install --apply-live "${KERNEL_MISSING[@]}" || {
         echo "Failed to install kernel packages"
-        echo "You may need to reboot and try again"
+        echo ""
+        echo "TROUBLESHOOTING:"
+        echo "1. Reboot and try again (kernel sources may need restart)"
+        echo "2. Check available kernel-devel versions:"
+        echo "   rpm -qa | grep kernel-devel"
+        echo "3. Running kernel: $KERNEL_VERSION"
         exit 1
     }
+    
+    # Re-check after installation
+    if [ ! -d "$KERNEL_SRC" ]; then
+        echo "❌ ERROR: Kernel sources still not found after installation"
+        echo "   This usually means kernel-devel doesn't match running kernel"
+        echo ""
+        echo "SOLUTION: Reboot to ensure kernel and kernel-devel are in sync"
+        echo "Then retry: sudo ludos-tesla-setup install-tesla --secure-boot <driver.run>"
+        exit 1
+    fi
 fi
 
 # Check wget availability (informational only - spec file has curl fallback)
@@ -95,8 +127,7 @@ if [ "$SIGN_MODULES" = "1" ]; then
         rpm-ostree install --apply-live "${MISSING_SB[@]}" || {
             echo "Failed to install Secure Boot tools"; exit 1; }
     fi
-    # Ensure kernel-devel present (for sign-file)
-    KERNEL_VERSION=$(uname -r)
+    # Verify sign-file is available (KERNEL_VERSION already set earlier)
     SIGN_FILE_PATH="/usr/src/kernels/$KERNEL_VERSION/scripts/sign-file"
     
     if [ ! -x "$SIGN_FILE_PATH" ]; then
@@ -257,8 +288,7 @@ fi
 echo "Creating Tesla driver tarball..."
 tar -cJf "nvidia-tesla-driver-$TESLA_VERSION.tar.xz" "nvidia-tesla-driver-$TESLA_VERSION/"
 
-# Get current kernel version
-KERNEL_VERSION=$(uname -r)
+# Derive kernel version components (KERNEL_VERSION already set earlier)
 KERNEL_RELEASE=$(echo "$KERNEL_VERSION" | cut -d'-' -f2-)
 KERNEL_BASE=$(echo "$KERNEL_VERSION" | cut -d'-' -f1)
 KERNEL_DIST=$(echo "$KERNEL_VERSION" | sed 's/.*\(\.[a-z][a-z0-9]*[0-9]\).*/\1/')
