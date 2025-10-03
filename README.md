@@ -76,12 +76,22 @@ For enterprise Tesla GPU support:
    - Download: `NVIDIA-Linux-x86_64-VERSION.run`
 
 2. **Install Tesla drivers**:
+   
+   **With Secure Boot enabled:**
    ```bash
    # Transfer driver file to LudOS VM
    scp NVIDIA-Linux-x86_64-580.82.07.run ludos@<vm-ip>:~/
    
-   # Install Tesla drivers
-   sudo ludos-tesla-setup install ~/NVIDIA-Linux-x86_64-580.82.07.run
+   # Install Tesla drivers with signed modules
+   sudo ludos-tesla-setup install-tesla --secure-boot ~/NVIDIA-Linux-x86_64-580.82.07.run
+   
+   # Follow MOK enrollment prompts, then reboot
+   ```
+   
+   **With Secure Boot disabled:**
+   ```bash
+   # Install Tesla drivers (unsigned)
+   sudo ludos-tesla-setup install-tesla ~/NVIDIA-Linux-x86_64-580.82.07.run
    
    # Reboot to activate
    sudo systemctl reboot
@@ -157,7 +167,8 @@ For gaming with licensing support, use **GRID vGPU drivers**.
 
 ## Documentation
 
-- **[Deployment Guide](DEPLOYMENT_GUIDE.md)**: Complete Tesla driver deployment procedure
+- **[Deployment Guide](DEPLOYMENT_GUIDE.md)**: Complete Tesla driver deployment procedure (Secure Boot enabled)
+- **[Unsigned Deployment Guide](UNSIGNED_DEPLOYMENT.md)**: Quick deployment with Secure Boot disabled
 - **[Tesla Quick Reference](TESLA_QUICK_REFERENCE.md)**: Essential Tesla commands and troubleshooting
 - **[Build Instructions](BUILD_INSTRUCTIONS.md)**: Detailed build and deployment guide
 - **[NVIDIA Setup Guide](build_files/nvidia-driver-install.sh)**: Driver installation procedures
