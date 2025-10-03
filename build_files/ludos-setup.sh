@@ -129,16 +129,20 @@ Requires=nvidia-device-setup.service
 Type=simple
 User=ludos
 Group=ludos
-Environment=DISPLAY=:1
-# Force NVIDIA GPU selection (card1, not card0 which is Proxmox VGA)
-Environment=DRI_PRIME=1
+# Use headless backend for GPU passthrough environments
+Environment=GAMESCOPE_WAYLAND_DISPLAY=gamescope-0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+# NVIDIA configuration
 Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
 Environment=__VK_LAYER_NV_optimus=NVIDIA_only
 Environment=VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
-# Use NVIDIA render node
-ExecStart=/usr/bin/gamescope --backend drm --prefer-vk-device /dev/dri/card1 --force-grab-cursor --xwayland-count 1 --default-touch-mode 4 --hide-cursor-delay 3000 --fade-out-duration 200 -- steam -gamepadui
+Environment=ENABLE_VKBASALT=0
+# Gamescope headless mode with nested Wayland - no DRM seat required
+ExecStart=/usr/bin/gamescope --headless -w 1920 -h 1080 -r 60 --force-grab-cursor --xwayland-count 2 -- sleep infinity
 Restart=always
 RestartSec=5
+# Grant GPU access
+SupplementaryGroups=video render
 
 [Install]
 WantedBy=graphical.target
