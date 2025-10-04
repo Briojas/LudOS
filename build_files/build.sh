@@ -104,7 +104,7 @@ dnf5 install -y \
     steam \
     gamemode \
     xorg-x11-server-Xvfb \
-    xorg-x11-utils
+    xdpyinfo
 
 ### LudOS NVIDIA Driver Strategy:
 # 1. Install minimal OpenGL infrastructure only (no NVIDIA drivers)
