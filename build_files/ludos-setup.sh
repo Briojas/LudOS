@@ -117,29 +117,30 @@ GAMESCOPE_FILTER=linear
 GAMESCOPE_BACKEND=drm
 EOF
 
-# Create systemd service for Gamescope
+# Create systemd service for Gamescope (optional - Sunshine works without it)
 cat > /etc/systemd/system/ludos-gamescope.service << 'EOF'
 [Unit]
 Description=LudOS Gamescope Virtual Display
 After=nvidia-gridd.service nvidia-device-setup.service
 Wants=nvidia-gridd.service nvidia-device-setup.service
-Requires=nvidia-device-setup.service
+# Optional - don't fail if NVIDIA not ready
+#Requires=nvidia-device-setup.service
 
 [Service]
 Type=simple
 User=ludos
 Group=ludos
-# Use headless backend for GPU passthrough environments
-Environment=GAMESCOPE_WAYLAND_DISPLAY=gamescope-0
+Environment=DISPLAY=:99
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 # NVIDIA configuration
 Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
-Environment=__VK_LAYER_NV_optimus=NVIDIA_only
 Environment=VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
-Environment=ENABLE_VKBASALT=0
-# Gamescope headless mode with nested Wayland - no DRM seat required
-ExecStart=/usr/bin/gamescope --headless -w 1920 -h 1080 -r 60 --force-grab-cursor --xwayland-count 2 -- sleep infinity
-Restart=always
+# Start Xvfb virtual display first, then nest gamescope in it
+# This avoids the need for DRM seat management
+ExecStartPre=/usr/bin/Xvfb :99 -screen 0 1920x1080x24 &
+ExecStart=/usr/bin/gamescope -w 1920 -h 1080 -r 60 --xwayland-count 2 -- steam -gamepadui
+ExecStopPost=/usr/bin/pkill -f "Xvfb :99"
+Restart=on-failure
 RestartSec=5
 # Grant GPU access
 SupplementaryGroups=video render
@@ -147,6 +148,13 @@ SupplementaryGroups=video render
 [Install]
 WantedBy=graphical.target
 EOF
+
+echo ""
+echo "Gamescope service configured for headless gaming:"
+echo "  - Xvfb provides virtual X server on :99"
+echo "  - Gamescope runs Steam Big Picture with Tesla GPU acceleration"
+echo "  - Sunshine streams the gamescope display to Moonlight clients"
+echo ""
 
 # Create ludos user for gaming services
 echo "Creating ludos user..."

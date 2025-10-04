@@ -9,10 +9,11 @@ Quick reference for deploying LudOS with unsigned Tesla drivers when Secure Boot
 ```bash
 # 1. DISABLE SECURE BOOT IN BIOS/UEFI (CRITICAL!)
 
-# 2. Build LudOS
+# 2. Build LudOS (includes Steam, Gamescope, Xvfb, Sunshine)
 just clean && just build && just build-iso
 
 # 3. Deploy ISO to VM/bare metal
+#    Note: VGA adapter needed for initial setup only
 
 # 4. Boot into LudOS, download Tesla driver
 curl -fSsl -O https://us.download.nvidia.com/tesla/580.82.07/NVIDIA-Linux-x86_64-580.82.07.run
@@ -23,13 +24,66 @@ sudo ludos-tesla-setup install-tesla ~/NVIDIA-Linux-x86_64-580.82.07.run
 # 6. Reboot
 sudo systemctl reboot
 
-# 7. Run setup and verify
+# 7. Run post-install setup
 sudo /etc/ludos/ludos-setup.sh
-ludos-tesla-setup status
-nvidia-smi
+
+# 8. Verify everything is working
+nvidia-smi                              # Should show Tesla P4
+systemctl status ludos-gamescope        # Should show Steam running
+systemctl status sunshine               # Should show streaming ready
+
+# 9. Configure Sunshine and connect
+# Access https://<vm-ip>:47990 to set credentials
+# Connect via Moonlight client - you'll see Steam Big Picture!
+
+# 10. (Optional) Remove VGA adapter from VM config
+#     Gamescope creates virtual display, VGA no longer needed
 ```
 
-**Key difference from signed branch:** Omit `--secure-boot` flag in step 5. That's it!
+**What's included in the build:**
+- ✅ Steam (gaming platform)
+- ✅ Gamescope (virtual display compositor for Tesla GPU)
+- ✅ Xvfb (virtual X server for gamescope to run on)
+- ✅ Sunshine (streaming server with KMS capture)
+
+## 🏗️ Architecture Overview
+
+**How LudOS Headless Gaming Works:**
+
+```
+┌─────────────────────────────────────────────┐
+│ LudOS VM (Headless - No Physical Monitor)   │
+│                                             │
+│  ┌──────────────────────────────────────┐  │
+│  │ Xvfb :99 (Virtual X Server)          │  │
+│  │  └─> Gamescope (Virtual Display)     │  │
+│  │       └─> Steam Big Picture          │  │
+│  │            └─> Game                   │  │
+│  │                ↓ Rendered on          │  │
+│  │           Tesla P4 via Vulkan/OpenGL  │  │
+│  └──────────────────────────────────────┘  │
+│              ↓ Captured at DISPLAY=:99      │
+│  ┌──────────────────────────────────────┐  │
+│  │ Sunshine Streaming Server            │  │
+│  │ - Captures gamescope display         │  │
+│  │ - Encodes with NVENC (Tesla HW)      │  │
+│  │ - Streams over network               │  │
+│  └──────────────────────────────────────┘  │
+│              ↓ Network (TCP/UDP)            │
+└──────────────┼──────────────────────────────┘
+               ↓
+      ┌────────────────┐
+      │ Moonlight      │ ← Your gaming device
+      │ Client         │   (PC/Phone/Tablet)
+      └────────────────┘
+```
+
+**Key Points:**
+- **No physical monitor needed** - Gamescope creates virtual display
+- **Tesla GPU acceleration** - Games render directly on Tesla P4
+- **Hardware encoding** - NVENC on Tesla for efficient streaming
+- **VGA adapter optional** - Only needed for initial VM setup
+- **Low latency** - Direct GPU access, no VNC overhead
 
 ---
 
@@ -138,13 +192,55 @@ sudo systemctl reboot
 
 ```bash
 # Check all services are running
-systemctl status ludos-gamescope
-systemctl status sunshine
-nvidia-smi
+nvidia-smi                              # Should show Tesla P4
+systemctl status ludos-gamescope        # Should show Steam launching
+systemctl status sunshine               # Should show streaming ready
 
+# Check gamescope logs to ensure Steam started
+journalctl -u ludos-gamescope.service -n 50
+
+# You should see:
+# - Xvfb started on :99
+# - Gamescope initialized with Tesla P4
+# - Steam Big Picture launching
+```
+
+### 9. Configure Sunshine
+
+```bash
 # Access Sunshine web interface
 https://<vm-ip>:47990
+
+# First-time setup:
+# 1. Create username and password
+# 2. Click "Configuration" tab
+# 3. Verify settings:
+#    - Display: :99 (gamescope's display)
+#    - Encoder: Should auto-detect NVENC on Tesla
+# 4. Click "Apply" and restart Sunshine if needed
+
+# Sunshine should now be ready to accept connections
 ```
+
+### 10. Connect via Moonlight
+
+```bash
+# Install Moonlight on your client device:
+# - Windows/Mac/Linux: https://moonlight-stream.org
+# - Android/iOS: Download from app store
+
+# In Moonlight:
+# 1. Add PC manually with LudOS VM IP address
+# 2. Enter the PIN shown in Moonlight into Sunshine web UI
+# 3. Once paired, you'll see "Steam Big Picture" as available app
+# 4. Click to connect - you should see Steam running on Tesla P4!
+```
+
+**What you'll see:**
+- Steam Big Picture UI running at 1920x1080@60Hz
+- Full Tesla P4 GPU acceleration for games
+- Low latency streaming with NVENC hardware encoding
+- Games will detect and use the Tesla P4 for rendering
 
 ## Key Differences from Signed Deployment
 

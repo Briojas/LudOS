@@ -102,7 +102,8 @@ dnf5 install -y gamescope
 echo "Installing Steam and gaming dependencies..."
 dnf5 install -y \
     steam \
-    gamemode
+    gamemode \
+    xorg-x11-server-Xvfb
 
 ### LudOS NVIDIA Driver Strategy:
 # 1. Install minimal OpenGL infrastructure only (no NVIDIA drivers)
