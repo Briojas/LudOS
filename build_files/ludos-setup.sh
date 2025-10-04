@@ -48,18 +48,20 @@ if [ -f /usr/bin/sunshine ]; then
         cat > /etc/systemd/system/sunshine.service << 'SUNEOF'
 [Unit]
 Description=Sunshine Streaming Server
-After=network-online.target ludos-gamescope.service
+After=network-online.target ludos-gamescope.service user@1000.service
 Wants=network-online.target ludos-gamescope.service
 
 [Service]
 Type=simple
 User=ludos
 Group=ludos
-# Provide display environment - use Gamescope's display
+# Use same display as gamescope (:99)
 Environment=HOME=/var/home/ludos
-Environment=DISPLAY=:1
-Environment=WAYLAND_DISPLAY=wayland-1
+Environment=DISPLAY=:99
 Environment=XDG_RUNTIME_DIR=/run/user/1000
+# NVIDIA configuration
+Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
+Environment=LD_LIBRARY_PATH=/usr/lib64:/usr/local/lib64
 ExecStart=/usr/bin/sunshine
 Restart=on-failure
 RestartSec=5s
@@ -124,33 +126,35 @@ GAMESCOPE_FILTER=linear
 GAMESCOPE_BACKEND=drm
 EOF
 
-# Create systemd service for Gamescope (optional - Sunshine works without it)
+# Create systemd service for Gamescope
 cat > /etc/systemd/system/ludos-gamescope.service << 'EOF'
 [Unit]
-Description=LudOS Gamescope Virtual Display
-After=nvidia-gridd.service nvidia-device-setup.service
-Wants=nvidia-gridd.service nvidia-device-setup.service
-# Optional - don't fail if NVIDIA not ready
-#Requires=nvidia-device-setup.service
+Description=LudOS Gamescope Virtual Display with Steam
+After=nvidia-device-setup.service graphical.target
+Wants=nvidia-device-setup.service
+# Wait for user session to be ready
+After=user@1000.service
+Wants=user@1000.service
 
 [Service]
 Type=simple
 User=ludos
 Group=ludos
+# Use Gamescope's built-in headless mode on display :99
 Environment=DISPLAY=:99
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 # NVIDIA configuration
 Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
 Environment=VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
-# Start Xvfb virtual display first, then nest gamescope in it
-# This avoids the need for DRM seat management
-ExecStartPre=/usr/bin/Xvfb :99 -screen 0 1920x1080x24 &
-ExecStart=/usr/bin/gamescope -w 1920 -h 1080 -r 60 --xwayland-count 2 -- steam -gamepadui
-ExecStopPost=/usr/bin/pkill -f "Xvfb :99"
+Environment=__NV_PRIME_RENDER_OFFLOAD=1
+Environment=__VK_LAYER_NV_optimus=NVIDIA_only
+# Gamescope with headless backend (requires no X server)
+# Use --prefer-vk-device to select NVIDIA GPU explicitly
+ExecStart=/usr/bin/gamescope --headless -w 1920 -h 1080 -W 1920 -H 1080 -r 60 --prefer-vk-device /dev/dri/card1 -- steam -gamepadui
 Restart=on-failure
-RestartSec=5
+RestartSec=10
 # Grant GPU access
-SupplementaryGroups=video render
+SupplementaryGroups=video render input
 
 [Install]
 WantedBy=graphical.target
