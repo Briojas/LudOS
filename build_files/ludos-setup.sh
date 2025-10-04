@@ -88,11 +88,18 @@ else
         curl -s https://copr.fedorainfracloud.org/coprs/lizardbyte/stable/repo/fedora-$(rpm -E %fedora)/lizardbyte-stable-fedora-$(rpm -E %fedora).repo -o /etc/yum.repos.d/lizardbyte-sunshine.repo
         
         # Install Sunshine with official package (capital S)
-        rpm-ostree install --apply-live -y Sunshine || {
+        # Note: Do NOT use --apply-live if Tesla drivers are manually installed
+        # It can cause conflicts with already-loaded kernel modules
+        rpm-ostree install -y Sunshine || {
             echo "Warning: rpm-ostree installation failed"
             echo "Sunshine will need to be installed manually after reboot"
             echo "Run: rpm-ostree install Sunshine && systemctl reboot"
         }
+        
+        echo ""
+        echo "IMPORTANT: Sunshine has been staged for installation."
+        echo "You MUST reboot for changes to take effect:"
+        echo "  sudo systemctl reboot"
     else
         echo "Warning: rpm-ostree not available, Sunshine installation skipped"
         echo "This system may not be using bootc/rpm-ostree"

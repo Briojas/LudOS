@@ -2,9 +2,10 @@
 Description=Create NVIDIA device nodes
 DefaultDependencies=no
 After=systemd-modules-load.service systemd-udev-settle.service
-Before=multi-user.target
-# Only run if nvidia module is loaded
-ConditionPathExists=/sys/module/nvidia
+Before=sysinit.target
+# Service is triggered by nvidia-device-setup.path when module is loaded
+# Can also be started manually without condition check
+#ConditionPathExists=/sys/module/nvidia
 
 [Service]
 Type=oneshot
@@ -14,6 +15,9 @@ ExecStartPre=/usr/bin/sleep 2
 ExecStart=/usr/bin/nvidia-modprobe -c 0
 # Create UVM device nodes
 ExecStart=/usr/bin/nvidia-modprobe -u
+# Manually create nvidiactl if nvidia-modprobe didn't (fallback for bootc/rpm-ostree)
+ExecStart=/usr/bin/sh -c 'test -e /dev/nvidiactl || mknod /dev/nvidiactl c 195 255'
+ExecStart=/usr/bin/sh -c 'test -e /dev/nvidiactl && chmod 666 /dev/nvidiactl'
 # Verify device nodes were created
 ExecStartPost=/usr/bin/sh -c 'test -e /dev/nvidia0 && test -e /dev/nvidiactl || exit 1'
 RemainAfterExit=yes

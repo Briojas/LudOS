@@ -1,13 +1,14 @@
 Name:           nvidia-tesla-utils
 Epoch:          1
 Version:        580.82.07
-Release:        7.ludos%{?dist}
+Release:        8.ludos%{?dist}
 Summary:        NVIDIA Tesla datacenter driver user-space utilities
 
 License:        Redistributable, no modification permitted
 URL:            https://www.nvidia.com/
 Source0:        nvidia-tesla-driver-%{version}.tar.xz
 Source1:        nvidia-device-setup.service
+Source2:        nvidia-device-setup.path
 
 %global _missing_build_ids_terminate_build 0
 %global debug_package %{nil}
@@ -77,8 +78,9 @@ elif [ -f usr/bin/nvidia-modprobe ]; then
     install -m 0755 usr/bin/nvidia-modprobe %{buildroot}%{_bindir}/
 fi
 
-# Install systemd service to create device nodes at boot
+# Install systemd service and path unit to create device nodes at boot
 install -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/nvidia-device-setup.service
+install -m 0644 %{SOURCE2} %{buildroot}%{_unitdir}/nvidia-device-setup.path
 
 # Function to find and install libraries from various possible locations
 install_lib() {
@@ -211,10 +213,15 @@ done
 
 %post
 %{_sbindir}/ldconfig
-%systemd_post nvidia-device-setup.service
+%systemd_post nvidia-device-setup.service nvidia-device-setup.path
+# Explicitly enable the path unit (bootc/rpm-ostree may not honor presets)
+if [ $1 -eq 1 ]; then
+    # First install - enable path unit to auto-trigger service
+    systemctl enable nvidia-device-setup.path >/dev/null 2>&1 || :
+fi
 
 %preun
-%systemd_preun nvidia-device-setup.service
+%systemd_preun nvidia-device-setup.service nvidia-device-setup.path
 
 %postun
 %{_sbindir}/ldconfig
@@ -265,8 +272,16 @@ done
 
 # Systemd
 %{_unitdir}/nvidia-device-setup.service
+%{_unitdir}/nvidia-device-setup.path
 
 %changelog
+* Sat Oct  4 2025 LudOS Project <ludos@example.com> - 1:580.82.07-8.ludos
+- Add systemd path unit to reliably trigger device setup when module loads
+- Fix nvidia-device-setup.service skipping at boot due to module load timing
+- Add mknod fallback for /dev/nvidiactl creation (nvidia-modprobe returns success but doesn't create nodes)
+- Explicitly enable nvidia-device-setup.path in %post for bootc/rpm-ostree compatibility
+- Resolve nvidia-smi communication failures after boot
+
 * Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-7.ludos
 - Add complete graphics library support (OpenGL, Vulkan, EGL, X.org)
 - Package all required libraries for hardware-accelerated rendering

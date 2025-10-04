@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch for NVIDIA kernel module
+Before=sysinit.target
+
+[Path]
+PathExists=/sys/module/nvidia
+Unit=nvidia-device-setup.service
+
+[Install]
+WantedBy=multi-user.target
