@@ -1,0 +1,50 @@
+[Unit]
+Description=LudOS Gamescope Display Manager
+Documentation=man:gamescope(1)
+After=user@1000.service nvidia-device-setup.service
+Wants=user@1000.service nvidia-device-setup.service
+# Ensure we start before Sunshine tries to capture
+Before=sunshine.service
+
+[Service]
+Type=simple
+User=ludos
+Group=ludos
+
+# Runtime directory
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+
+# Display configuration
+Environment=LUDOS_DISPLAY_NUM=99
+Environment=LUDOS_RESOLUTION=1920x1080
+Environment=LUDOS_REFRESH=60
+Environment=LUDOS_BACKEND=xvfb
+
+# NVIDIA environment (if available)
+Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
+Environment=VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
+Environment=__NV_PRIME_RENDER_OFFLOAD=1
+Environment=__VK_LAYER_NV_optimus=NVIDIA_only
+
+# Mesa fallback (for systems without NVIDIA)
+Environment=MESA_LOADER_DRIVER_OVERRIDE=nvidia
+
+# Additional paths
+Environment=LD_LIBRARY_PATH=/usr/lib64:/usr/local/lib64
+
+# Start the display manager
+ExecStart=/usr/local/bin/ludos-gamescope-display
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# Resource limits
+# Allow realtime scheduling for better latency
+LimitNICE=-10
+
+# Grant GPU access
+SupplementaryGroups=video render input
+
+[Install]
+WantedBy=graphical.target

@@ -127,6 +127,8 @@ LudOS uses a layered approach for headless gaming:
 ├─────────────────────────────────────┤
 │      Gamescope (Virtual Display)    │ ← Virtual display compositor  
 ├─────────────────────────────────────┤
+│         Xvfb (Virtual X Server)     │ ← X11 display server
+├─────────────────────────────────────┤
 │         Steam + Games               │ ← Gaming applications
 ├─────────────────────────────────────┤
 │       NVIDIA GRID Drivers           │ ← GPU virtualization & licensing
@@ -134,6 +136,53 @@ LudOS uses a layered approach for headless gaming:
 │      Fedora 42 (bootc)             │ ← Base operating system
 └─────────────────────────────────────┘
 ```
+
+## Display Management
+
+LudOS includes a custom display management system for headless operation:
+
+### Quick Display Commands
+
+```bash
+# Start virtual display
+sudo ludos-display start
+
+# Check display status
+ludos-display status
+
+# View display logs
+ludos-display logs
+
+# Change display backend
+sudo ludos-display set-backend headless    # Experimental, lower overhead
+sudo ludos-display set-backend drm         # Direct GPU rendering
+sudo ludos-display set-backend xvfb        # Default, most compatible
+
+# Change resolution
+sudo ludos-display set-resolution 2560x1440
+sudo ludos-display set-resolution 3840x2160  # 4K
+```
+
+### Display Backends
+
+LudOS supports three display backends:
+
+1. **xvfb** (Default) - Xvfb + Gamescope nested
+   - ✅ Most compatible and stable
+   - ✅ Works with all GPU types
+   - ✅ Best for initial setup
+   
+2. **headless** (Experimental) - Gamescope headless mode
+   - ✅ Lower overhead
+   - ❌ May not work with all games
+   - ⚠️ Experimental feature
+   
+3. **drm** (Advanced) - Direct DRM/KMS rendering
+   - ✅ Best performance
+   - ✅ Lowest latency
+   - ❌ Requires proper permissions
+
+📖 **For detailed display configuration, see [GAMESCOPE_DISPLAY_GUIDE.md](GAMESCOPE_DISPLAY_GUIDE.md)**
 
 ## NVIDIA Driver Support
 
@@ -169,6 +218,7 @@ For gaming with licensing support, use **GRID vGPU drivers**.
 
 - **[Deployment Guide](DEPLOYMENT_GUIDE.md)**: Complete Tesla driver deployment procedure (Secure Boot enabled)
 - **[Unsigned Deployment Guide](UNSIGNED_DEPLOYMENT.md)**: Quick deployment with Secure Boot disabled
+- **[Gamescope Display Guide](GAMESCOPE_DISPLAY_GUIDE.md)**: Virtual display management and Sunshine integration
 - **[Tesla Quick Reference](TESLA_QUICK_REFERENCE.md)**: Essential Tesla commands and troubleshooting
 - **[Build Instructions](BUILD_INSTRUCTIONS.md)**: Detailed build and deployment guide
 - **[NVIDIA Setup Guide](build_files/nvidia-driver-install.sh)**: Driver installation procedures

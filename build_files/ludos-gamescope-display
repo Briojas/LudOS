@@ -1,0 +1,170 @@
+#!/bin/bash
+
+# LudOS Gamescope Display Manager
+# Creates virtual display with Xvfb + Gamescope for Sunshine streaming
+
+set -euo pipefail
+
+# Configuration
+DISPLAY_NUM=${LUDOS_DISPLAY_NUM:-99}
+DISPLAY=":${DISPLAY_NUM}"
+RESOLUTION=${LUDOS_RESOLUTION:-1920x1080}
+REFRESH_RATE=${LUDOS_REFRESH:-60}
+BACKEND=${LUDOS_BACKEND:-xvfb}  # xvfb, headless, or drm
+
+# Parse resolution
+IFS='x' read -r WIDTH HEIGHT <<< "$RESOLUTION"
+
+# Logging
+LOG_DIR="${XDG_RUNTIME_DIR:-/tmp}/ludos"
+mkdir -p "$LOG_DIR"
+XVFB_LOG="$LOG_DIR/xvfb.log"
+GAMESCOPE_LOG="$LOG_DIR/gamescope.log"
+
+echo "[LudOS] Starting Gamescope Display Manager"
+echo "[LudOS] Display: $DISPLAY"
+echo "[LudOS] Resolution: ${WIDTH}x${HEIGHT}@${REFRESH_RATE}Hz"
+echo "[LudOS] Backend: $BACKEND"
+
+# Cleanup function
+cleanup() {
+    echo "[LudOS] Shutting down display services..."
+    
+    # Kill gamescope if running
+    if [ -n "${GAMESCOPE_PID:-}" ] && kill -0 "$GAMESCOPE_PID" 2>/dev/null; then
+        echo "[LudOS] Stopping Gamescope (PID: $GAMESCOPE_PID)"
+        kill "$GAMESCOPE_PID" 2>/dev/null || true
+        wait "$GAMESCOPE_PID" 2>/dev/null || true
+    fi
+    
+    # Kill Xvfb if running
+    if [ -n "${XVFB_PID:-}" ] && kill -0 "$XVFB_PID" 2>/dev/null; then
+        echo "[LudOS] Stopping Xvfb (PID: $XVFB_PID)"
+        kill "$XVFB_PID" 2>/dev/null || true
+        wait "$XVFB_PID" 2>/dev/null || true
+    fi
+    
+    echo "[LudOS] Display services stopped"
+}
+
+trap cleanup EXIT INT TERM
+
+# Function to start Xvfb backend
+start_xvfb_backend() {
+    echo "[LudOS] Starting Xvfb virtual display..."
+    
+    # Start Xvfb with appropriate settings
+    Xvfb "$DISPLAY" \
+        -screen 0 "${WIDTH}x${HEIGHT}x24" \
+        -nolisten tcp \
+        -noreset \
+        +extension GLX \
+        +extension RANDR \
+        +extension RENDER \
+        > "$XVFB_LOG" 2>&1 &
+    
+    XVFB_PID=$!
+    echo "[LudOS] Xvfb started (PID: $XVFB_PID)"
+    
+    # Wait for X server to be ready
+    for i in {1..30}; do
+        if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
+            echo "[LudOS] Xvfb is ready"
+            return 0
+        fi
+        sleep 0.1
+    done
+    
+    echo "[LudOS] ERROR: Xvfb failed to start"
+    return 1
+}
+
+# Function to start Gamescope
+start_gamescope() {
+    local gamescope_args=()
+    
+    # Set internal and output resolution
+    gamescope_args+=(-w "$WIDTH" -h "$HEIGHT")
+    gamescope_args+=(-W "$WIDTH" -H "$HEIGHT")
+    gamescope_args+=(-r "$REFRESH_RATE")
+    
+    # Backend-specific settings
+    case "$BACKEND" in
+        xvfb)
+            # Nested mode - run inside Xvfb
+            export DISPLAY="$DISPLAY"
+            gamescope_args+=(--xwayland-count 2)
+            gamescope_args+=(--nested-refresh "$REFRESH_RATE")
+            ;;
+        headless)
+            # Headless mode - no X server needed
+            gamescope_args+=(--headless)
+            gamescope_args+=(--xwayland-count 2)
+            ;;
+        drm)
+            # Direct DRM mode
+            gamescope_args+=(--backend drm)
+            gamescope_args+=(--prefer-vk-device /dev/dri/card1)
+            ;;
+    esac
+    
+    # NVIDIA GPU selection (if available)
+    if [ -d /dev/dri ]; then
+        gamescope_args+=(--prefer-vk-device /dev/dri/card1)
+    fi
+    
+    # Additional performance settings
+    gamescope_args+=(--adaptive-sync)
+    gamescope_args+=(--force-grab-cursor)
+    
+    echo "[LudOS] Starting Gamescope with args: ${gamescope_args[*]}"
+    
+    # Start gamescope without a nested application (just the compositor)
+    # This creates a capturable display for Sunshine
+    gamescope "${gamescope_args[@]}" -- sleep infinity > "$GAMESCOPE_LOG" 2>&1 &
+    
+    GAMESCOPE_PID=$!
+    echo "[LudOS] Gamescope started (PID: $GAMESCOPE_PID)"
+    
+    # Wait a moment for gamescope to initialize
+    sleep 2
+    
+    if ! kill -0 "$GAMESCOPE_PID" 2>/dev/null; then
+        echo "[LudOS] ERROR: Gamescope died immediately after starting"
+        echo "[LudOS] Check logs at: $GAMESCOPE_LOG"
+        return 1
+    fi
+    
+    echo "[LudOS] Gamescope is running"
+    return 0
+}
+
+# Main execution
+case "$BACKEND" in
+    xvfb)
+        start_xvfb_backend || exit 1
+        start_gamescope || exit 1
+        ;;
+    headless|drm)
+        start_gamescope || exit 1
+        ;;
+    *)
+        echo "[LudOS] ERROR: Unknown backend: $BACKEND"
+        echo "[LudOS] Valid backends: xvfb, headless, drm"
+        exit 1
+        ;;
+esac
+
+echo "[LudOS] Display manager is ready"
+echo "[LudOS] Xvfb log: $XVFB_LOG"
+echo "[LudOS] Gamescope log: $GAMESCOPE_LOG"
+echo "[LudOS] Press Ctrl+C to stop"
+
+# Wait for processes to exit
+if [ -n "${XVFB_PID:-}" ]; then
+    wait "$XVFB_PID" 2>/dev/null || true
+fi
+
+if [ -n "${GAMESCOPE_PID:-}" ]; then
+    wait "$GAMESCOPE_PID" 2>/dev/null || true
+fi

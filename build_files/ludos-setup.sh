@@ -48,8 +48,8 @@ if [ -f /usr/bin/sunshine ]; then
         cat > /etc/systemd/system/sunshine.service << 'SUNEOF'
 [Unit]
 Description=Sunshine Streaming Server
-After=network-online.target ludos-gamescope.service user@1000.service
-Wants=network-online.target ludos-gamescope.service
+After=network-online.target ludos-gamescope-display.service user@1000.service
+Wants=network-online.target ludos-gamescope-display.service
 
 [Service]
 Type=simple
@@ -108,63 +108,18 @@ else
     fi
 fi
 
-# Create Gamescope configuration
-echo "Setting up Gamescope virtual display..."
-mkdir -p /etc/ludos/gamescope
-cat > /etc/ludos/gamescope/default.conf << 'EOF'
-# Default Gamescope configuration for LudOS
-# Virtual display settings
-GAMESCOPE_WIDTH=1920
-GAMESCOPE_HEIGHT=1080
-GAMESCOPE_REFRESH=60
-
-# Upscaling settings
-GAMESCOPE_UPSCALE=1
-GAMESCOPE_FILTER=linear
-
-# NVIDIA specific settings
-GAMESCOPE_BACKEND=drm
-EOF
-
-# Create systemd service for Gamescope
-cat > /etc/systemd/system/ludos-gamescope.service << 'EOF'
-[Unit]
-Description=LudOS Gamescope Virtual Display with Steam
-After=nvidia-device-setup.service graphical.target
-Wants=nvidia-device-setup.service
-# Wait for user session to be ready
-After=user@1000.service
-Wants=user@1000.service
-
-[Service]
-Type=simple
-User=ludos
-Group=ludos
-# Use Gamescope's built-in headless mode on display :99
-Environment=DISPLAY=:99
-Environment=XDG_RUNTIME_DIR=/run/user/1000
-# NVIDIA configuration
-Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
-Environment=VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
-Environment=__NV_PRIME_RENDER_OFFLOAD=1
-Environment=__VK_LAYER_NV_optimus=NVIDIA_only
-# Gamescope with headless backend (requires no X server)
-# Use --prefer-vk-device to select NVIDIA GPU explicitly
-ExecStart=/usr/bin/gamescope --headless -w 1920 -h 1080 -W 1920 -H 1080 -r 60 --prefer-vk-device /dev/dri/card1 -- steam -gamepadui
-Restart=on-failure
-RestartSec=10
-# Grant GPU access
-SupplementaryGroups=video render input
-
-[Install]
-WantedBy=graphical.target
-EOF
-
+# Configure Gamescope Display Service
+echo "Setting up Gamescope display service..."
 echo ""
-echo "Gamescope service configured for headless gaming:"
-echo "  - Xvfb provides virtual X server on :99"
-echo "  - Gamescope runs Steam Big Picture with Tesla GPU acceleration"
-echo "  - Sunshine streams the gamescope display to Moonlight clients"
+echo "The new ludos-gamescope-display.service provides:"
+echo "  - Virtual display on :99 (via Xvfb + Gamescope)"
+echo "  - Capturable display for Sunshine streaming"
+echo "  - Configurable backends (xvfb, headless, drm)"
+echo ""
+echo "Manage with: ludos-display <command>"
+echo "  Commands: start, stop, status, enable, disable, logs"
+echo ""
+echo "Default configuration: 1920x1080@60Hz with xvfb backend"
 echo ""
 
 # Create ludos user for gaming services
@@ -180,7 +135,8 @@ systemctl --global enable wireplumber.service
 # Enable and start services
 echo "Enabling LudOS services..."
 systemctl daemon-reload
-systemctl enable ludos-gamescope.service
+systemctl enable ludos-gamescope-display.service
+echo "Gamescope display service enabled"
 
 # Only enable sunshine service if it exists
 if systemctl list-unit-files sunshine.service >/dev/null 2>&1; then
@@ -198,6 +154,12 @@ echo "Next steps:"
 echo "1. Edit /etc/nvidia/gridd.conf with your NVIDIA license server details"
 echo "2. Configure Sunshine by accessing the web interface at https://localhost:47990"
 echo "3. Reboot the system to start all services"
-echo "4. Check service status with: systemctl status ludos-gamescope sunshine nvidia-gridd"
+echo "4. Check service status with: systemctl status ludos-gamescope-display sunshine nvidia-gridd"
+echo ""
+echo "Display Management Commands:"
+echo "  ludos-display status      - Check display service status"
+echo "  ludos-display start       - Start the display"
+echo "  ludos-display logs        - View display logs"
+echo "  ludos-display set-backend - Change display backend (xvfb/headless/drm)"
 echo ""
 echo "For headless operation, connect via Moonlight client to this system's IP address"

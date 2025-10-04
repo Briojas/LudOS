@@ -103,7 +103,8 @@ echo "Installing Steam and gaming dependencies..."
 dnf5 install -y \
     steam \
     gamemode \
-    xorg-x11-server-Xvfb
+    xorg-x11-server-Xvfb \
+    xorg-x11-utils
 
 ### LudOS NVIDIA Driver Strategy:
 # 1. Install minimal OpenGL infrastructure only (no NVIDIA drivers)
@@ -190,6 +191,9 @@ cp /ctx/nvidia-driver-install.sh /etc/ludos/
 cp /ctx/ludos-sunshine-setup /usr/local/bin/
 cp /ctx/ludos-tesla-setup /usr/local/bin/
 cp /ctx/ludos-tesla-rebuild-modules /usr/local/bin/
+cp /ctx/ludos-display /usr/local/bin/
+cp /ctx/ludos-gamescope-display /usr/local/bin/
+cp /ctx/ludos-gamescope-display.service /etc/systemd/system/
 
 # Copy nvidia-kmod directory if it exists
 if [ -d /ctx/nvidia-kmod ]; then
@@ -203,6 +207,8 @@ chmod +x /etc/ludos/nvidia-driver-install.sh
 chmod +x /usr/local/bin/ludos-sunshine-setup
 chmod +x /usr/local/bin/ludos-tesla-setup
 chmod +x /usr/local/bin/ludos-tesla-rebuild-modules
+chmod +x /usr/local/bin/ludos-display
+chmod +x /usr/local/bin/ludos-gamescope-display
 
 # Make Tesla build script executable if it exists
 if [ -f /etc/ludos/nvidia-kmod/build-tesla-kmod.sh ]; then

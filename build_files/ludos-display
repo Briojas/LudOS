@@ -1,0 +1,388 @@
+#!/bin/bash
+
+# LudOS Display Management Command
+# User-friendly interface for managing the Gamescope display service
+
+set -euo pipefail
+
+SCRIPT_NAME="ludos-display"
+SERVICE_NAME="ludos-gamescope-display.service"
+
+# Color output
+if [ -t 1 ]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m' # No Color
+else
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    NC=''
+fi
+
+# Helper functions
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $*"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $*"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
+# Show usage
+show_usage() {
+    cat << EOF
+LudOS Display Management - Gamescope Virtual Display Control
+
+USAGE:
+    $SCRIPT_NAME <command> [options]
+
+COMMANDS:
+    start           Start the Gamescope display service
+    stop            Stop the Gamescope display service
+    restart         Restart the Gamescope display service
+    status          Show display service status
+    enable          Enable display service to start on boot
+    disable         Disable display service auto-start
+    logs            Show display service logs
+    test            Test display by showing current state
+    config          Show current display configuration
+    set-backend     Change display backend (xvfb|headless|drm)
+    set-resolution  Change display resolution (e.g., 1920x1080)
+
+EXAMPLES:
+    $SCRIPT_NAME start              # Start the display
+    $SCRIPT_NAME status             # Check if running
+    $SCRIPT_NAME logs               # View logs
+    $SCRIPT_NAME set-backend drm    # Switch to direct DRM mode
+    $SCRIPT_NAME set-resolution 2560x1440  # Set higher resolution
+
+BACKENDS:
+    xvfb      - Xvfb + Gamescope nested (default, most compatible)
+    headless  - Gamescope headless mode (experimental)
+    drm       - Direct DRM/KMS mode (requires proper permissions)
+
+NOTES:
+    - The display runs on :99 by default
+    - Sunshine streams from this display
+    - Logs are in /run/user/1000/ludos/
+    - Service must be enabled to start on boot
+
+EOF
+}
+
+# Get service status
+get_status() {
+    systemctl is-active "$SERVICE_NAME" 2>/dev/null || echo "inactive"
+}
+
+# Check if service is enabled
+is_enabled() {
+    systemctl is-enabled "$SERVICE_NAME" 2>/dev/null || echo "disabled"
+}
+
+# Command: status
+cmd_status() {
+    local status=$(get_status)
+    local enabled=$(is_enabled)
+    
+    echo "=== LudOS Display Service Status ==="
+    echo ""
+    
+    if [ "$status" = "active" ]; then
+        print_success "Service is running"
+    else
+        print_warning "Service is not running"
+    fi
+    
+    echo "Status: $status"
+    echo "Enabled: $enabled"
+    echo ""
+    
+    # Show detailed systemd status
+    systemctl status "$SERVICE_NAME" --no-pager -l || true
+    
+    echo ""
+    echo "=== Display Information ==="
+    
+    # Check if display :99 is available
+    if DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then
+        print_success "Display :99 is available"
+        DISPLAY=:99 xdpyinfo | head -10
+    else
+        print_warning "Display :99 is not available"
+    fi
+}
+
+# Command: start
+cmd_start() {
+    print_info "Starting LudOS display service..."
+    
+    if sudo systemctl start "$SERVICE_NAME"; then
+        sleep 2
+        local status=$(get_status)
+        if [ "$status" = "active" ]; then
+            print_success "Display service started successfully"
+            echo ""
+            print_info "Display is available on :99"
+            print_info "Check status with: $SCRIPT_NAME status"
+        else
+            print_error "Service started but not active"
+            print_info "Check logs with: $SCRIPT_NAME logs"
+            return 1
+        fi
+    else
+        print_error "Failed to start display service"
+        return 1
+    fi
+}
+
+# Command: stop
+cmd_stop() {
+    print_info "Stopping LudOS display service..."
+    
+    if sudo systemctl stop "$SERVICE_NAME"; then
+        print_success "Display service stopped"
+    else
+        print_error "Failed to stop display service"
+        return 1
+    fi
+}
+
+# Command: restart
+cmd_restart() {
+    print_info "Restarting LudOS display service..."
+    
+    if sudo systemctl restart "$SERVICE_NAME"; then
+        sleep 2
+        local status=$(get_status)
+        if [ "$status" = "active" ]; then
+            print_success "Display service restarted successfully"
+        else
+            print_error "Service restarted but not active"
+            return 1
+        fi
+    else
+        print_error "Failed to restart display service"
+        return 1
+    fi
+}
+
+# Command: enable
+cmd_enable() {
+    print_info "Enabling LudOS display service..."
+    
+    if sudo systemctl enable "$SERVICE_NAME"; then
+        print_success "Display service will start on boot"
+    else
+        print_error "Failed to enable display service"
+        return 1
+    fi
+}
+
+# Command: disable
+cmd_disable() {
+    print_info "Disabling LudOS display service..."
+    
+    if sudo systemctl disable "$SERVICE_NAME"; then
+        print_success "Display service will not start on boot"
+    else
+        print_error "Failed to disable display service"
+        return 1
+    fi
+}
+
+# Command: logs
+cmd_logs() {
+    print_info "Showing display service logs..."
+    echo ""
+    journalctl -u "$SERVICE_NAME" -n 50 --no-pager
+    
+    echo ""
+    print_info "For live logs, use: journalctl -u $SERVICE_NAME -f"
+}
+
+# Command: test
+cmd_test() {
+    echo "=== Display Test ==="
+    echo ""
+    
+    # Check service
+    local status=$(get_status)
+    echo "Service Status: $status"
+    
+    # Check display
+    if DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then
+        print_success "Display :99 is responding"
+        echo ""
+        echo "Display Information:"
+        DISPLAY=:99 xdpyinfo | grep -E "(dimensions|resolution|depths)"
+    else
+        print_error "Display :99 is not responding"
+        return 1
+    fi
+    
+    echo ""
+    
+    # Check for Gamescope process
+    if pgrep -f gamescope >/dev/null; then
+        print_success "Gamescope process is running"
+        echo "Gamescope PIDs: $(pgrep -f gamescope | tr '\n' ' ')"
+    else
+        print_warning "Gamescope process not found"
+    fi
+    
+    echo ""
+    
+    # Check for Xvfb process
+    if pgrep Xvfb >/dev/null; then
+        print_success "Xvfb process is running"
+        echo "Xvfb PIDs: $(pgrep Xvfb | tr '\n' ' ')"
+    else
+        print_warning "Xvfb process not found"
+    fi
+}
+
+# Command: config
+cmd_config() {
+    echo "=== Display Configuration ==="
+    echo ""
+    
+    # Show current service environment
+    print_info "Current service configuration:"
+    systemctl show "$SERVICE_NAME" --property=Environment || true
+    
+    echo ""
+    print_info "To change configuration, edit:"
+    echo "  /etc/systemd/system/$SERVICE_NAME"
+    echo ""
+    print_info "Or use override:"
+    echo "  sudo systemctl edit $SERVICE_NAME"
+}
+
+# Command: set-backend
+cmd_set_backend() {
+    local backend="$1"
+    
+    if [[ ! "$backend" =~ ^(xvfb|headless|drm)$ ]]; then
+        print_error "Invalid backend: $backend"
+        echo "Valid backends: xvfb, headless, drm"
+        return 1
+    fi
+    
+    print_info "Setting display backend to: $backend"
+    
+    # Create systemd override
+    sudo mkdir -p /etc/systemd/system/"$SERVICE_NAME".d
+    cat << EOF | sudo tee /etc/systemd/system/"$SERVICE_NAME".d/backend.conf
+[Service]
+Environment=LUDOS_BACKEND=$backend
+EOF
+    
+    sudo systemctl daemon-reload
+    print_success "Backend changed to: $backend"
+    print_info "Restart the service to apply: $SCRIPT_NAME restart"
+}
+
+# Command: set-resolution
+cmd_set_resolution() {
+    local resolution="$1"
+    
+    if [[ ! "$resolution" =~ ^[0-9]+x[0-9]+$ ]]; then
+        print_error "Invalid resolution format: $resolution"
+        echo "Use format: WIDTHxHEIGHT (e.g., 1920x1080)"
+        return 1
+    fi
+    
+    print_info "Setting display resolution to: $resolution"
+    
+    # Create systemd override
+    sudo mkdir -p /etc/systemd/system/"$SERVICE_NAME".d
+    cat << EOF | sudo tee /etc/systemd/system/"$SERVICE_NAME".d/resolution.conf
+[Service]
+Environment=LUDOS_RESOLUTION=$resolution
+EOF
+    
+    sudo systemctl daemon-reload
+    print_success "Resolution changed to: $resolution"
+    print_info "Restart the service to apply: $SCRIPT_NAME restart"
+}
+
+# Main command dispatcher
+main() {
+    if [ $# -eq 0 ]; then
+        show_usage
+        exit 0
+    fi
+    
+    local command="$1"
+    shift
+    
+    case "$command" in
+        start)
+            cmd_start
+            ;;
+        stop)
+            cmd_stop
+            ;;
+        restart)
+            cmd_restart
+            ;;
+        status)
+            cmd_status
+            ;;
+        enable)
+            cmd_enable
+            ;;
+        disable)
+            cmd_disable
+            ;;
+        logs)
+            cmd_logs
+            ;;
+        test)
+            cmd_test
+            ;;
+        config)
+            cmd_config
+            ;;
+        set-backend)
+            if [ $# -eq 0 ]; then
+                print_error "Backend argument required"
+                echo "Usage: $SCRIPT_NAME set-backend <xvfb|headless|drm>"
+                exit 1
+            fi
+            cmd_set_backend "$1"
+            ;;
+        set-resolution)
+            if [ $# -eq 0 ]; then
+                print_error "Resolution argument required"
+                echo "Usage: $SCRIPT_NAME set-resolution <WIDTHxHEIGHT>"
+                exit 1
+            fi
+            cmd_set_resolution "$1"
+            ;;
+        help|--help|-h)
+            show_usage
+            ;;
+        *)
+            print_error "Unknown command: $command"
+            echo ""
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
