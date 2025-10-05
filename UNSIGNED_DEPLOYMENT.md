@@ -192,17 +192,21 @@ sudo systemctl reboot
 
 ```bash
 # Check all services are running
-nvidia-smi                              # Should show Tesla P4
-systemctl status ludos-gamescope        # Should show Steam launching
-systemctl status sunshine               # Should show streaming ready
+nvidia-smi                                      # Should show Tesla P4
+systemctl status ludos-gamescope-display       # Should show Gamescope running
+systemctl status sunshine                       # Should show streaming ready
 
-# Check gamescope logs to ensure Steam started
-journalctl -u ludos-gamescope.service -n 50
+# Check gamescope logs to ensure display started
+journalctl -u ludos-gamescope-display.service -n 50
 
 # You should see:
-# - Xvfb started on :99
-# - Gamescope initialized with Tesla P4
-# - Steam Big Picture launching
+# - Gamescope started in headless mode on :99
+# - NVIDIA GPU detected and initialized
+# - Virtual display ready for capture
+
+# Test the display
+ludos-display status
+ludos-display test
 ```
 
 ### 9. Configure Sunshine

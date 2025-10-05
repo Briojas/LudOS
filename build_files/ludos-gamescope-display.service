@@ -18,7 +18,7 @@ Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=LUDOS_DISPLAY_NUM=99
 Environment=LUDOS_RESOLUTION=1920x1080
 Environment=LUDOS_REFRESH=60
-Environment=LUDOS_BACKEND=xvfb
+Environment=LUDOS_BACKEND=headless
 
 # NVIDIA environment (if available)
 Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
@@ -45,6 +45,12 @@ LimitNICE=-10
 
 # Grant GPU access
 SupplementaryGroups=video render input
+
+# Allow access to DRI devices (GPU)
+DeviceAllow=/dev/dri/card0 rw
+DeviceAllow=/dev/dri/card1 rw
+DeviceAllow=/dev/dri/renderD128 rw
+DeviceAllow=/dev/dri/renderD129 rw
 
 [Install]
 WantedBy=graphical.target

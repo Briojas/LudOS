@@ -38,9 +38,40 @@ if [ -f /usr/bin/sunshine ]; then
         echo "Note: Running on rpm-ostree - capabilities should be set by package"
     fi
     
-    # Create Sunshine configuration directory
-    mkdir -p /etc/sunshine
-    chown -R sunshine:sunshine /etc/sunshine 2>/dev/null || echo "Note: sunshine user not found, will be created on first run"
+    # Create Sunshine configuration directory for ludos user
+    mkdir -p /var/home/ludos/.config/sunshine
+    
+    # Create Sunshine configuration file
+    echo "Creating Sunshine configuration for X11 capture..."
+    cat > /var/home/ludos/.config/sunshine/sunshine.conf << 'SUNCONF'
+# LudOS Sunshine Configuration
+# Optimized for virtual display streaming
+
+# Use X11 capture (not KMS)
+capture = x11
+
+# Use the Gamescope display
+display_number = 99
+
+# Encoder configuration
+encoder = software
+# Note: NVENC will be used automatically if available
+
+# Video settings
+resolutions = [
+    1920x1080
+]
+fps = [30, 60]
+
+# Network settings
+port = 47989
+origin_web_ui_allowed = pc
+
+# General settings
+min_log_level = info
+SUNCONF
+    
+    chown -R ludos:ludos /var/home/ludos/.config/sunshine
     
     # Create systemd service if it doesn't exist
     if [ ! -f /etc/systemd/system/sunshine.service ]; then
@@ -70,6 +101,11 @@ AmbientCapabilities=CAP_SYS_ADMIN CAP_SYS_NICE CAP_IPC_LOCK
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_NICE CAP_IPC_LOCK
 # Grant access to DRI devices
 SupplementaryGroups=video render input
+# Allow access to GPU devices
+DeviceAllow=/dev/dri/card0 rw
+DeviceAllow=/dev/dri/card1 rw
+DeviceAllow=/dev/dri/renderD128 rw
+DeviceAllow=/dev/dri/renderD129 rw
 
 [Install]
 WantedBy=graphical.target
@@ -112,14 +148,15 @@ fi
 echo "Setting up Gamescope display service..."
 echo ""
 echo "The new ludos-gamescope-display.service provides:"
-echo "  - Virtual display on :99 (via Xvfb + Gamescope)"
+echo "  - Virtual display on :99 (via Gamescope headless mode)"
+echo "  - Hardware-accelerated rendering with NVIDIA Tesla GPU"
 echo "  - Capturable display for Sunshine streaming"
-echo "  - Configurable backends (xvfb, headless, drm)"
+echo "  - Configurable backends (headless, drm, xvfb)"
 echo ""
 echo "Manage with: ludos-display <command>"
 echo "  Commands: start, stop, status, enable, disable, logs"
 echo ""
-echo "Default configuration: 1920x1080@60Hz with xvfb backend"
+echo "Default configuration: 1920x1080@60Hz with headless backend (NVIDIA GPU)"
 echo ""
 
 # Create ludos user for gaming services

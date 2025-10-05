@@ -2,40 +2,44 @@
 
 ## Overview
 
-LudOS provides a custom display management system built on Gamescope and Xvfb to create a virtual display that Sunshine can capture and stream to Moonlight clients. This system is designed for headless gaming VMs with no physical display attached.
+LudOS provides a custom display management system built on Gamescope to create a hardware-accelerated virtual display that Sunshine can capture and stream to Moonlight clients. This system is designed for headless gaming VMs with NVIDIA Tesla GPUs and no physical display attached.
 
 ## Architecture
 
-The display system consists of three components:
+The display system consists of two main components:
 
-1. **Xvfb** - Creates a virtual X11 display server (`:99`)
-2. **Gamescope** - Nested Wayland compositor providing GPU-accelerated rendering
-3. **Sunshine** - Captures the display and streams to Moonlight clients
+1. **Gamescope** - Headless Wayland compositor with GPU-accelerated rendering
+2. **Sunshine** - Captures the display and streams to Moonlight clients
+
+(Optional: **Xvfb** - Virtual X11 server for software rendering fallback)
 
 ```
 ┌─────────────────────────────────────────┐
 │  Moonlight Client (Remote)              │
 │  ↑                                       │
-│  │ H.264/H.265 Stream                   │
+│  │ H.264/H.265 Stream (NVENC)           │
 └──┼──────────────────────────────────────┘
    │
 ┌──┴──────────────────────────────────────┐
 │  Sunshine (Capture & Encode)            │
+│  - NVENC hardware encoding              │
+│  - X11 screen capture                   │
 │  ↑                                       │
 └──┼──────────────────────────────────────┘
    │
 ┌──┴──────────────────────────────────────┐
-│  Gamescope (Compositor)                 │
+│  Gamescope Headless (Compositor)        │
 │  - Wayland compositor                   │
-│  - GPU acceleration                     │
+│  - NVIDIA GPU acceleration              │
 │  - Virtual display :99                  │
+│  - Xwayland support for X11 apps        │
 │  ↑                                       │
 └──┼──────────────────────────────────────┘
    │
 ┌──┴──────────────────────────────────────┐
-│  Xvfb (Virtual X Server)                │
-│  - Display :99                          │
-│  - 1920x1080@60Hz default               │
+│  NVIDIA Tesla P4 GPU                    │
+│  - Hardware rendering                   │
+│  - NVENC encoding                       │
 └─────────────────────────────────────────┘
 ```
 
@@ -95,87 +99,90 @@ ludos-display help
 
 LudOS supports three display backends, each with different characteristics:
 
-### 1. **xvfb** (Default - Recommended)
-
-**How it works:**
-- Starts Xvfb virtual X server on `:99`
-- Launches Gamescope nested inside Xvfb
-- Most compatible approach
-
-**Pros:**
-- ✅ Most compatible and stable
-- ✅ Works with all GPU types
-- ✅ Reliable X11 compatibility
-- ✅ Easy to debug
-
-**Cons:**
-- ❌ Slightly higher CPU overhead
-- ❌ Extra layer (X11 + Wayland)
-
-**Use when:**
-- Default choice for most setups
-- Running legacy X11 games
-- Need maximum compatibility
-- Troubleshooting other backends
-
-```bash
-sudo ludos-display set-backend xvfb
-sudo ludos-display restart
-```
-
-### 2. **headless** (Experimental)
+### 1. **headless** (Default - Recommended for NVIDIA)
 
 **How it works:**
 - Gamescope runs in headless mode
-- No X server required
+- Direct NVIDIA GPU rendering
 - Creates virtual display internally
+- Includes Xwayland for X11 app compatibility
 
 **Pros:**
+- ✅ Full NVIDIA GPU acceleration
 - ✅ Lower overhead (no Xvfb)
-- ✅ Simpler architecture
-- ✅ Native Wayland
+- ✅ Hardware-accelerated rendering
+- ✅ NVENC encoding support
+- ✅ Native Wayland with X11 compat
 
 **Cons:**
-- ❌ Experimental Gamescope feature
-- ❌ May not work with all games
-- ❌ Limited X11 compatibility
+- ❌ Requires NVIDIA GPU
+- ❌ Needs proper DRI permissions
 
 **Use when:**
-- Want to minimize overhead
-- Running native Wayland games
-- GPU supports headless rendering
-- Testing new Gamescope features
+- Using NVIDIA Tesla/datacenter GPU (default)
+- Want maximum GPU performance
+- Hardware encoding desired
+- Modern gaming setup
 
 ```bash
 sudo ludos-display set-backend headless
 sudo ludos-display restart
 ```
 
-### 3. **drm** (Direct Rendering)
+### 2. **drm** (Direct Rendering)
 
 **How it works:**
 - Gamescope uses DRM/KMS directly
 - Bypasses X11 entirely
 - Direct GPU access
+- Alternative to headless mode
 
 **Pros:**
-- ✅ Best performance potential
-- ✅ Lowest latency
 - ✅ Direct GPU control
+- ✅ No Xvfb overhead
+- ✅ Clean architecture
 
 **Cons:**
-- ❌ Requires proper DRM permissions
-- ❌ May conflict with other display services
-- ❌ More complex setup
+- ❌ Requires proper DRI permissions
+- ❌ May need additional setup
+- ❌ Less tested than headless
 
 **Use when:**
-- Maximum performance needed
-- Direct GPU control required
-- Running datacenter GPUs (Tesla)
-- Advanced setup only
+- Headless mode has issues
+- Want alternative GPU mode
+- Advanced debugging
 
 ```bash
 sudo ludos-display set-backend drm
+sudo ludos-display restart
+```
+
+### 3. **xvfb** (Software Fallback)
+
+**How it works:**
+- Starts Xvfb virtual X server on `:99`
+- Launches Gamescope nested inside Xvfb
+- Software rendering fallback
+
+**Pros:**
+- ✅ Works without GPU
+- ✅ Maximum compatibility
+- ✅ Easy to debug
+
+**Cons:**
+- ❌ No GPU acceleration
+- ❌ Software rendering only (llvmpipe)
+- ❌ Higher CPU usage
+- ❌ No NVENC encoding
+
+**Use when:**
+- GPU driver issues
+- Testing without hardware
+- Troubleshooting GPU problems
+- Fallback mode only
+
+```bash
+sudo ludos-display set-backend xvfb
 sudo ludos-display restart
 ```
 
@@ -204,7 +211,7 @@ Environment=LUDOS_RESOLUTION=2560x1440
 Environment=LUDOS_REFRESH=120
 
 # Change backend
-Environment=LUDOS_BACKEND=xvfb
+Environment=LUDOS_BACKEND=headless
 ```
 
 Then reload and restart:
