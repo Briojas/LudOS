@@ -93,12 +93,13 @@ start_gamescope() {
         xvfb)
             # Nested mode - run inside Xvfb
             export DISPLAY="$DISPLAY"
-            gamescope_args+=(--xwayland-count 2)
+            gamescope_args+=(--backend sdl)
             gamescope_args+=(--nested-refresh "$REFRESH_RATE")
+            gamescope_args+=(--xwayland-count 2)
             ;;
         headless)
             # Headless mode - no X server needed
-            gamescope_args+=(--headless)
+            gamescope_args+=(--backend headless)
             gamescope_args+=(--xwayland-count 2)
             ;;
         drm)
