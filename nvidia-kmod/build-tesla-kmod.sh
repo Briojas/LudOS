@@ -171,6 +171,9 @@ cp "$SCRIPT_DIR/nvidia-kmod-noopen-pciids.txt" "$BUILD_DIR/SOURCES/"
 if [ -f "$SCRIPT_DIR/nvidia-device-setup.service" ]; then
     cp "$SCRIPT_DIR/nvidia-device-setup.service" "$BUILD_DIR/SOURCES/"
 fi
+if [ -f "$SCRIPT_DIR/nvidia-device-setup.path" ]; then
+    cp "$SCRIPT_DIR/nvidia-device-setup.path" "$BUILD_DIR/SOURCES/"
+fi
 
 # Check for Tesla driver (user must provide)
 echo "Checking for Tesla driver $TESLA_VERSION..."
