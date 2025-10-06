@@ -154,37 +154,36 @@ sudo ludos-tesla-setup install-tesla ~/NVIDIA-Linux-x86_64-580.82.07.run
 # - Prompt for reboot
 ```
 
-### 6. Reboot and Verify
+### 6. Reboot and Verify Driver
 
 ```bash
-# After reboot
+# After reboot, check driver status
 sudo ludos-tesla-setup status
 
-# Verify Tesla driver loaded
-nvidia-smi
-
-# Check kernel modules
+# Check kernel modules are loaded
 lsmod | grep nvidia
 
 # Should see:
 # - nvidia (Tesla kernel module)
 # - nvidia_drm
 # - nvidia_modeset
-# - nvidia_uvm
+
+# Note: nvidia-smi will NOT work yet (device nodes not created)
 ```
 
-### 7. Complete Setup
+### 7. Complete Setup (REQUIRED)
 
 ```bash
-# Run post-installation setup
+# Run post-installation setup script
+# This enables device nodes, GPU persistence, and services
 sudo /etc/ludos/ludos-setup.sh
 
-# This configures:
-# - Sunshine streaming server
-# - Gamescope virtual display
-# - System services
+# Now verify nvidia-smi works
+nvidia-smi
 
-# Reboot one final time
+# Should show Tesla P4 with driver version
+
+# Reboot one final time to ensure all services start properly
 sudo systemctl reboot
 ```
 

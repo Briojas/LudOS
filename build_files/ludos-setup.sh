@@ -169,6 +169,16 @@ systemctl --global enable pipewire.service
 systemctl --global enable pipewire-pulse.service
 systemctl --global enable wireplumber.service
 
+# Enable NVIDIA device setup service (creates /dev/nvidia* nodes)
+echo "Enabling NVIDIA device setup service..."
+if systemctl list-unit-files nvidia-device-setup.service >/dev/null 2>&1; then
+    systemctl enable nvidia-device-setup.service
+    systemctl start nvidia-device-setup.service || echo "Warning: Could not start device setup service"
+    echo "NVIDIA device setup service enabled"
+else
+    echo "Warning: nvidia-device-setup.service not found"
+fi
+
 # Enable NVIDIA GPU persistence mode (required for NVENC in services)
 echo "Enabling NVIDIA GPU persistence mode..."
 if command -v nvidia-smi >/dev/null 2>&1; then
