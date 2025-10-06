@@ -169,6 +169,15 @@ systemctl --global enable pipewire.service
 systemctl --global enable pipewire-pulse.service
 systemctl --global enable wireplumber.service
 
+# Enable NVIDIA GPU persistence mode (required for NVENC in services)
+echo "Enabling NVIDIA GPU persistence mode..."
+if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi -pm 1 || echo "Warning: Could not enable GPU persistence mode"
+    echo "GPU persistence mode enabled"
+else
+    echo "Warning: nvidia-smi not found, skipping GPU persistence setup"
+fi
+
 # Enable and start services
 echo "Enabling LudOS services..."
 systemctl daemon-reload

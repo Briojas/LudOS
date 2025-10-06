@@ -220,10 +220,16 @@ https://<vm-ip>:47990
 # 2. Click "Configuration" tab
 # 3. Verify settings:
 #    - Display: :99 (gamescope's display)
-#    - Encoder: Should auto-detect NVENC on Tesla
+#    - Encoder: Should show "h264_nvenc" and "hevc_nvenc" available
 # 4. Click "Apply" and restart Sunshine if needed
 
-# Sunshine should now be ready to accept connections
+# Note: You may see warnings about "Multiple reference frames" in logs
+# This is normal - Sunshine tests various encoder settings and finds
+# compatible configuration for Tesla P4 automatically
+
+# Verify NVENC is working
+journalctl -u sunshine.service -n 50 | grep "Found.*encoder"
+# Should show: "Found H.264 encoder: h264_nvenc [nvenc]"
 ```
 
 ### 10. Connect via Moonlight

@@ -111,7 +111,7 @@ For enterprise Tesla GPU support:
    - Add PC using LudOS VM IP address
    - Stream games remotely
 
-📖 **For detailed Tesla deployment instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**
+📖 **For detailed Tesla deployment instructions, see [Deployment Guide](docs/deployment-guide.md)**
 
 ## Architecture
 
@@ -182,7 +182,7 @@ LudOS supports three display backends:
    - ✅ Lowest latency
    - ❌ Requires proper permissions
 
-📖 **For detailed display configuration, see [GAMESCOPE_DISPLAY_GUIDE.md](GAMESCOPE_DISPLAY_GUIDE.md)**
+📖 **For detailed display configuration, see [Gamescope Display Guide](docs/gamescope-display-guide.md)**
 
 ## NVIDIA Driver Support
 
@@ -216,13 +216,18 @@ For gaming with licensing support, use **GRID vGPU drivers**.
 
 ## Documentation
 
-- **[Deployment Guide](DEPLOYMENT_GUIDE.md)**: Complete Tesla driver deployment procedure (Secure Boot enabled)
-- **[Unsigned Deployment Guide](UNSIGNED_DEPLOYMENT.md)**: Quick deployment with Secure Boot disabled
-- **[Gamescope Display Guide](GAMESCOPE_DISPLAY_GUIDE.md)**: Virtual display management and Sunshine integration
-- **[Tesla Quick Reference](TESLA_QUICK_REFERENCE.md)**: Essential Tesla commands and troubleshooting
-- **[Build Instructions](BUILD_INSTRUCTIONS.md)**: Detailed build and deployment guide
-- **[NVIDIA Setup Guide](build_files/nvidia-driver-install.sh)**: Driver installation procedures
-- **[Troubleshooting](BUILD_INSTRUCTIONS.md#troubleshooting)**: Common issues and solutions
+### Guides
+- **[Deployment Guide](docs/deployment-guide.md)**: Complete Tesla driver deployment procedure (Secure Boot enabled)
+- **[Unsigned Deployment Guide](docs/unsigned-deployment.md)**: Quick deployment with Secure Boot disabled
+- **[Gamescope Display Guide](docs/gamescope-display-guide.md)**: Virtual display management and Sunshine integration
+- **[Tesla Quick Reference](docs/tesla-quick-reference.md)**: Essential Tesla commands and troubleshooting
+- **[Build Instructions](docs/build-instructions.md)**: Detailed build and deployment guide
+
+### Release Notes
+- **[v0.7.1](releases/v0.7.1.md)**: Tesla P4 NVENC and Gamescope fixes
+- **[v0.7.0](releases/v0.7.0.md)**: Gamescope display improvements
+- **[v0.6.0](releases/v0.6.0.md)**: Initial stable release
+- **[Tesla Driver Fixes v0.4.0](releases/tesla-driver-fixes-v0.4.0.md)**: Tesla-specific driver patches
 
 ## Repository Structure
 
