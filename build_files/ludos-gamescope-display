@@ -103,20 +103,16 @@ start_gamescope() {
             gamescope_args+=(--xwayland-count 2)
             # Prefer NVIDIA Tesla P4 GPU (PCI ID format)
             gamescope_args+=(--prefer-vk-device 10de:1bb3)
-            # Pass NVIDIA environment to Xwayland for GPU acceleration
-            gamescope_args+=(--xwayland-display-server-env __GLX_VENDOR_LIBRARY_NAME=nvidia)
-            gamescope_args+=(--xwayland-display-server-env __NV_PRIME_RENDER_OFFLOAD=1)
-            gamescope_args+=(--xwayland-display-server-env __VK_LAYER_NV_optimus=NVIDIA_only)
+            # NOTE: NVIDIA environment variables are set in the systemd service
+            # (Gamescope 3.16.15 doesn't support --xwayland-display-server-env)
             ;;
         drm)
             # Direct DRM mode
             gamescope_args+=(--backend drm)
             # Prefer NVIDIA Tesla P4 GPU (PCI ID format)
             gamescope_args+=(--prefer-vk-device 10de:1bb3)
-            # Pass NVIDIA environment to Xwayland for GPU acceleration
-            gamescope_args+=(--xwayland-display-server-env __GLX_VENDOR_LIBRARY_NAME=nvidia)
-            gamescope_args+=(--xwayland-display-server-env __NV_PRIME_RENDER_OFFLOAD=1)
-            gamescope_args+=(--xwayland-display-server-env __VK_LAYER_NV_optimus=NVIDIA_only)
+            # NOTE: NVIDIA environment variables are set in the systemd service
+            # (Gamescope 3.16.15 doesn't support --xwayland-display-server-env)
             ;;
     esac
     

@@ -98,6 +98,10 @@ echo "Installing gaming components..."
 echo "Installing Gamescope virtual display manager..."
 dnf5 install -y gamescope
 
+# Install Vulkan tools for diagnostics
+echo "Installing Vulkan diagnostics tools..."
+dnf5 install -y vulkan-tools
+
 # Install Steam and gaming dependencies (requires RPM Fusion)
 echo "Installing Steam and gaming dependencies..."
 dnf5 install -y \

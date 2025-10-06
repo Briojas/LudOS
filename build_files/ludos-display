@@ -74,8 +74,8 @@ BACKENDS:
     xvfb      - Xvfb + Gamescope nested (software rendering fallback)
 
 NOTES:
-    - The display runs on :99 by default
-    - Sunshine streams from this display
+    - In headless mode, Gamescope creates displays :0 and :1
+    - Sunshine streams from these displays
     - Logs are in /run/user/1000/ludos/
     - Service must be enabled to start on boot
 
@@ -116,12 +116,16 @@ cmd_status() {
     echo ""
     echo "=== Display Information ==="
     
-    # Check if display :99 is available
-    if DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then
-        print_success "Display :99 is available"
-        DISPLAY=:99 xdpyinfo | head -10
+    # Check if Gamescope displays are available (headless mode uses :0 and :1)
+    if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
+        print_success "Gamescope display :0 is available"
+        DISPLAY=:0 xdpyinfo | head -10
+    elif DISPLAY=:1 xdpyinfo >/dev/null 2>&1; then
+        print_success "Gamescope display :1 is available"
+        DISPLAY=:1 xdpyinfo | head -10
     else
-        print_warning "Display :99 is not available"
+        print_warning "No Gamescope displays detected"
+        print_info "In headless mode, Gamescope creates :0 and :1"
     fi
 }
 
@@ -135,7 +139,7 @@ cmd_start() {
         if [ "$status" = "active" ]; then
             print_success "Display service started successfully"
             echo ""
-            print_info "Display is available on :99"
+            print_info "Gamescope displays should be available on :0 and :1"
             print_info "Check status with: $SCRIPT_NAME status"
         else
             print_error "Service started but not active"
@@ -222,14 +226,27 @@ cmd_test() {
     local status=$(get_status)
     echo "Service Status: $status"
     
-    # Check display
-    if DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then
-        print_success "Display :99 is responding"
+    # Check Gamescope displays (headless mode uses :0 and :1)
+    local display_found=false
+    if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
+        print_success "Gamescope display :0 is responding"
         echo ""
-        echo "Display Information:"
-        DISPLAY=:99 xdpyinfo | grep -E "(dimensions|resolution|depths)"
-    else
-        print_error "Display :99 is not responding"
+        echo "Display :0 Information:"
+        DISPLAY=:0 xdpyinfo | grep -E "(dimensions|resolution|depths)"
+        display_found=true
+    fi
+    
+    if DISPLAY=:1 xdpyinfo >/dev/null 2>&1; then
+        print_success "Gamescope display :1 is responding"
+        echo ""
+        echo "Display :1 Information:"
+        DISPLAY=:1 xdpyinfo | grep -E "(dimensions|resolution|depths)"
+        display_found=true
+    fi
+    
+    if [ "$display_found" = false ]; then
+        print_error "No Gamescope displays responding"
+        print_info "Expected displays: :0 and :1"
         return 1
     fi
     
