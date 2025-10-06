@@ -199,7 +199,7 @@ systemctl status sunshine                       # Should show streaming ready
 journalctl -u ludos-gamescope-display.service -n 50
 
 # You should see:
-# - Gamescope started in headless mode on :99
+# - Gamescope started in headless mode (creates :0 and :1)
 # - NVIDIA GPU detected and initialized
 # - Virtual display ready for capture
 
@@ -218,7 +218,7 @@ https://<vm-ip>:47990
 # 1. Create username and password
 # 2. Click "Configuration" tab
 # 3. Verify settings:
-#    - Display: :99 (gamescope's display)
+#    - Display: :0 (gamescope's primary display)
 #    - Encoder: Should show "h264_nvenc" and "hevc_nvenc" available
 # 4. Click "Apply" and restart Sunshine if needed
 

@@ -1,0 +1,13 @@
+[Unit]
+Description=NVIDIA GPU Persistence Mode
+After=nvidia-device-setup.service
+Requires=nvidia-device-setup.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/nvidia-smi -pm 1
+ExecStop=/usr/bin/nvidia-smi -pm 0
+
+[Install]
+WantedBy=multi-user.target

@@ -186,6 +186,7 @@ systemctl enable nvidia-gridd.service || echo "Warning: nvidia-gridd service not
 
 ### Copy LudOS setup files (directory already created above)
 cp /ctx/nvidia-gridd.conf.template /etc/ludos/
+cp /ctx/nvidia-persistence.service /etc/ludos/
 cp /ctx/ludos-setup.sh /etc/ludos/
 cp /ctx/nvidia-driver-install.sh /etc/ludos/
 cp /ctx/ludos-sunshine-setup /usr/local/bin/

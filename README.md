@@ -224,7 +224,7 @@ For gaming with licensing support, use **GRID vGPU drivers**.
 - **[Build Instructions](docs/build-instructions.md)**: Detailed build and deployment guide
 
 ### Release Notes
-- **[v0.7.1](releases/v0.7.1.md)**: Tesla P4 NVENC and Gamescope fixes
+- **[v0.7.2](releases/v0.7.2.md)**: Tesla P4 NVENC, Gamescope, and device setup fixes
 - **[v0.7.0](releases/v0.7.0.md)**: Gamescope display improvements
 - **[v0.6.0](releases/v0.6.0.md)**: Initial stable release
 - **[Tesla Driver Fixes v0.4.0](releases/tesla-driver-fixes-v0.4.0.md)**: Tesla-specific driver patches

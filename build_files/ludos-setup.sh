@@ -83,13 +83,16 @@ Wants=network-online.target ludos-gamescope-display.service
 Type=simple
 User=ludos
 Group=ludos
-# Use same display as gamescope (:99)
+# Use gamescope display (headless mode creates :0 and :1, use :0 for capture)
 Environment=HOME=/var/home/ludos
-Environment=DISPLAY=:99
+Environment=DISPLAY=:0
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 # NVIDIA configuration
 Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
+Environment=__NV_PRIME_RENDER_OFFLOAD=1
 Environment=LD_LIBRARY_PATH=/usr/lib64:/usr/local/lib64
+# Give Xwayland time to fully initialize before starting capture
+ExecStartPre=/bin/sleep 3
 ExecStart=/usr/bin/sunshine
 Restart=on-failure
 RestartSec=5s
@@ -106,6 +109,13 @@ DeviceAllow=/dev/dri/renderD129 rw
 # NVIDIA CUDA devices for NVENC hardware encoding
 DeviceAllow=/dev/nvidia0 rw
 DeviceAllow=/dev/nvidiactl rw
+DeviceAllow=/dev/nvidia-modeset rw
+DeviceAllow=/dev/nvidia-uvm rw
+DeviceAllow=/dev/nvidia-uvm-tools rw
+# Input device access for virtual keyboard/mouse/gamepad
+DeviceAllow=/dev/uinput rw
+DeviceAllow=/dev/input/event* rw
+DeviceAllow=char-input rw
 
 [Install]
 WantedBy=graphical.target
@@ -179,11 +189,15 @@ else
     echo "Warning: nvidia-device-setup.service not found"
 fi
 
-# Enable NVIDIA GPU persistence mode (required for NVENC in services)
-echo "Enabling NVIDIA GPU persistence mode..."
+# Install and enable NVIDIA GPU persistence mode service
+echo "Setting up NVIDIA GPU persistence mode..."
 if command -v nvidia-smi >/dev/null 2>&1; then
-    nvidia-smi -pm 1 || echo "Warning: Could not enable GPU persistence mode"
-    echo "GPU persistence mode enabled"
+    # Copy persistence service file
+    cp /etc/ludos/nvidia-persistence.service /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable nvidia-persistence.service
+    systemctl start nvidia-persistence.service || echo "Warning: Could not start persistence service"
+    echo "GPU persistence mode service enabled"
 else
     echo "Warning: nvidia-smi not found, skipping GPU persistence setup"
 fi
