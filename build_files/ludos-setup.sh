@@ -45,27 +45,24 @@ if [ -f /usr/bin/sunshine ]; then
     echo "Creating Sunshine configuration for X11 capture..."
     cat > /var/home/ludos/.config/sunshine/sunshine.conf << 'SUNCONF'
 # LudOS Sunshine Configuration
-# Optimized for virtual display streaming
+# Optimized for virtual display streaming with NVIDIA Tesla GPU
 
 # Use X11 capture (not KMS)
 capture = x11
 
-# Use the Gamescope display
-display_number = 99
+# Encoder configuration - use NVENC for hardware encoding
+encoder = nvenc
 
-# Encoder configuration
-encoder = software
-# Note: NVENC will be used automatically if available
+# NVENC preset (valid options: default, slow, medium, fast, hp, hq, bd, ll, llhq, lossless)
+nvenc_preset = llhq
 
-# Video settings
-resolutions = [
-    1920x1080
-]
-fps = [30, 60]
+# NVENC features
+nvenc_realtime_hags = disabled
+nvenc_vbv_increase = disabled
 
 # Network settings
 port = 47989
-origin_web_ui_allowed = pc
+origin_web_ui_allowed = wan
 
 # General settings
 min_log_level = info
@@ -101,11 +98,14 @@ AmbientCapabilities=CAP_SYS_ADMIN CAP_SYS_NICE CAP_IPC_LOCK
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_NICE CAP_IPC_LOCK
 # Grant access to DRI devices
 SupplementaryGroups=video render input
-# Allow access to GPU devices
+# Allow access to GPU devices (DRI for display, NVIDIA for CUDA/NVENC)
 DeviceAllow=/dev/dri/card0 rw
 DeviceAllow=/dev/dri/card1 rw
 DeviceAllow=/dev/dri/renderD128 rw
 DeviceAllow=/dev/dri/renderD129 rw
+# NVIDIA CUDA devices for NVENC hardware encoding
+DeviceAllow=/dev/nvidia0 rw
+DeviceAllow=/dev/nvidiactl rw
 
 [Install]
 WantedBy=graphical.target

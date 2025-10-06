@@ -101,18 +101,16 @@ start_gamescope() {
             # Headless mode - no X server needed
             gamescope_args+=(--backend headless)
             gamescope_args+=(--xwayland-count 2)
+            # Prefer NVIDIA Tesla P4 GPU (PCI ID format)
+            gamescope_args+=(--prefer-vk-device 10de:1bb3)
             ;;
         drm)
             # Direct DRM mode
             gamescope_args+=(--backend drm)
-            gamescope_args+=(--prefer-vk-device /dev/dri/card1)
+            # Prefer NVIDIA Tesla P4 GPU (PCI ID format)
+            gamescope_args+=(--prefer-vk-device 10de:1bb3)
             ;;
     esac
-    
-    # NVIDIA GPU selection (if available)
-    if [ -d /dev/dri ]; then
-        gamescope_args+=(--prefer-vk-device /dev/dri/card1)
-    fi
     
     # Additional performance settings
     gamescope_args+=(--adaptive-sync)
