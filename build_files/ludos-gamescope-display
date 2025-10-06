@@ -22,7 +22,11 @@ XVFB_LOG="$LOG_DIR/xvfb.log"
 GAMESCOPE_LOG="$LOG_DIR/gamescope.log"
 
 echo "[LudOS] Starting Gamescope Display Manager"
-echo "[LudOS] Display: $DISPLAY"
+if [ "$BACKEND" = "headless" ] || [ "$BACKEND" = "drm" ]; then
+    echo "[LudOS] Display: Gamescope will create :0 and :1 (headless mode)"
+else
+    echo "[LudOS] Display: $DISPLAY"
+fi
 echo "[LudOS] Resolution: ${WIDTH}x${HEIGHT}@${REFRESH_RATE}Hz"
 echo "[LudOS] Backend: $BACKEND"
 

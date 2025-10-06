@@ -199,16 +199,49 @@ systemctl status sunshine                       # Should show streaming ready
 journalctl -u ludos-gamescope-display.service -n 50
 
 # You should see:
-# - Gamescope started in headless mode (creates :0 and :1)
-# - NVIDIA GPU detected and initialized
-# - Virtual display ready for capture
+# - "Gamescope started (PID: xxxx)"
+# - "Gamescope is running"
+# - "Display manager is ready"
+# - In process list: Xwayland :0 and Xwayland :1
 
 # Test the display
 ludos-display status
 ludos-display test
+
+# Expected results:
+# - Display :0 is responding (1920x1080)
+# - Display :1 is responding (1920x1080)
+# - Gamescope process running
+# - nvidia-smi shows gamescope using GPU memory
+
+### 9. Start Steam Big Picture
+
+```bash
+# Enable and start Steam Big Picture service
+sudo systemctl enable steam-bigpicture.service
+sudo systemctl start steam-bigpicture.service
+
+# Check Steam is running
+systemctl status steam-bigpicture.service
+pgrep -af steam
+
+# Should see Steam process running on display :0
+
+# Verify with nvidia-smi
+nvidia-smi
+# Should show 3 processes:
+# - gamescope (~68MB)
+# - sunshine (~106MB)
+# - steam (~100-200MB)
+
+# Management commands:
+ludos-steam start      # Start Steam
+ludos-steam stop       # Stop Steam
+ludos-steam status     # Check status
+ludos-steam logs       # View logs
 ```
 
-### 9. Configure Sunshine
+### 10. Configure Sunshine
 
 ```bash
 # Access Sunshine web interface
@@ -216,11 +249,10 @@ https://<vm-ip>:47990
 
 # First-time setup:
 # 1. Create username and password
-# 2. Click "Configuration" tab
-# 3. Verify settings:
+# 2. Verify these settings:
 #    - Display: :0 (gamescope's primary display)
 #    - Encoder: Should show "h264_nvenc" and "hevc_nvenc" available
-# 4. Click "Apply" and restart Sunshine if needed
+# 3. Click "Apply" and restart Sunshine if needed
 
 # Note: You may see warnings about "Multiple reference frames" in logs
 # This is normal - Sunshine tests various encoder settings and finds
@@ -231,7 +263,7 @@ journalctl -u sunshine.service -n 50 | grep "Found.*encoder"
 # Should show: "Found H.264 encoder: h264_nvenc [nvenc]"
 ```
 
-### 10. Connect via Moonlight
+### 11. Connect via Moonlight
 
 ```bash
 # Install Moonlight on your client device:

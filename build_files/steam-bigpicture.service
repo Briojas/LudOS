@@ -1,0 +1,63 @@
+[Unit]
+Description=Steam Big Picture Mode
+Documentation=https://store.steampowered.com/bigpicture
+After=ludos-gamescope-display.service user@1000.service
+Wants=ludos-gamescope-display.service user@1000.service
+# Start after Gamescope display is ready
+Requires=ludos-gamescope-display.service
+
+[Service]
+Type=simple
+User=ludos
+Group=ludos
+
+# Use Gamescope's primary display
+Environment=DISPLAY=:0
+Environment=HOME=/var/home/ludos
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+
+# NVIDIA environment
+Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
+Environment=__NV_PRIME_RENDER_OFFLOAD=1
+Environment=__VK_LAYER_NV_optimus=NVIDIA_only
+Environment=LD_LIBRARY_PATH=/usr/lib64:/usr/local/lib64
+
+# Steam environment
+Environment=STEAM_RUNTIME=1
+Environment=STEAM_RUNTIME_PREFER_HOST_LIBRARIES=0
+
+# Wait for Gamescope display to fully initialize
+ExecStartPre=/bin/sleep 5
+
+# Launch Steam in Big Picture mode
+# Use -gamepadui for the newer Big Picture interface
+ExecStart=/usr/bin/steam -gamepadui -fulldesktopres
+
+# Restart if Steam crashes
+Restart=on-failure
+RestartSec=10s
+
+# Grant GPU access
+SupplementaryGroups=video render input audio
+
+# Allow access to DRI devices (GPU)
+DeviceAllow=/dev/dri/card0 rw
+DeviceAllow=/dev/dri/card1 rw
+DeviceAllow=/dev/dri/renderD128 rw
+DeviceAllow=/dev/dri/renderD129 rw
+
+# Allow access to NVIDIA devices
+DeviceAllow=/dev/nvidia0 rw
+DeviceAllow=/dev/nvidia1 rw
+DeviceAllow=/dev/nvidiactl rw
+DeviceAllow=/dev/nvidia-modeset rw
+DeviceAllow=/dev/nvidia-uvm rw
+DeviceAllow=/dev/nvidia-uvm-tools rw
+
+# Input device access
+DeviceAllow=/dev/uinput rw
+DeviceAllow=/dev/input/event* rw
+DeviceAllow=char-input rw
+
+[Install]
+WantedBy=graphical.target

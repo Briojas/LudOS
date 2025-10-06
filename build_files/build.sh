@@ -197,8 +197,10 @@ cp /ctx/ludos-sunshine-setup /usr/local/bin/
 cp /ctx/ludos-tesla-setup /usr/local/bin/
 cp /ctx/ludos-tesla-rebuild-modules /usr/local/bin/
 cp /ctx/ludos-display /usr/local/bin/
+cp /ctx/ludos-steam /usr/local/bin/
 cp /ctx/ludos-gamescope-display /usr/local/bin/
 cp /ctx/ludos-gamescope-display.service /etc/systemd/system/
+cp /ctx/steam-bigpicture.service /etc/systemd/system/
 
 # Copy nvidia-kmod directory if it exists
 if [ -d /ctx/nvidia-kmod ]; then
@@ -213,6 +215,7 @@ chmod +x /usr/local/bin/ludos-sunshine-setup
 chmod +x /usr/local/bin/ludos-tesla-setup
 chmod +x /usr/local/bin/ludos-tesla-rebuild-modules
 chmod +x /usr/local/bin/ludos-display
+chmod +x /usr/local/bin/ludos-steam
 chmod +x /usr/local/bin/ludos-gamescope-display
 
 # Make Tesla build script executable if it exists
