@@ -1,0 +1,384 @@
+#!/bin/bash
+
+# LudOS OpenBox Management Command
+# User-friendly interface for managing OpenBox window manager
+
+set -euo pipefail
+
+SCRIPT_NAME="ludos-openbox"
+SERVICE_NAME="ludos-openbox.service"
+CONFIG_FILE="/var/home/ludos/.config/openbox/rc.xml"
+
+# Color output
+if [ -t 1 ]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m' # No Color
+else
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    NC=''
+fi
+
+# Helper functions
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $*"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $*"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
+# Show usage
+show_usage() {
+    cat << EOF
+LudOS OpenBox Management - Control Window Manager
+
+USAGE:
+    $SCRIPT_NAME <command>
+
+COMMANDS:
+    status          Show OpenBox service status
+    start           Start OpenBox window manager
+    stop            Stop OpenBox
+    restart         Restart OpenBox
+    enable          Enable OpenBox to start on boot
+    disable         Disable OpenBox auto-start
+    logs            Show OpenBox logs
+    reconfigure     Reload OpenBox configuration without restart
+    config          Edit OpenBox configuration
+    verify          Verify OpenBox is working correctly
+
+EXAMPLES:
+    $SCRIPT_NAME status             # Check if running
+    $SCRIPT_NAME restart            # Restart window manager
+    $SCRIPT_NAME logs               # View logs
+    $SCRIPT_NAME verify             # Test window manager
+
+NOTES:
+    - OpenBox manages windows on Gamescope display :0
+    - Required for Steam and game UIs to display properly
+    - Configuration: $CONFIG_FILE
+    - Restarts automatically on failure
+
+EOF
+}
+
+# Get service status
+get_status() {
+    systemctl is-active "$SERVICE_NAME" 2>/dev/null || echo "inactive"
+}
+
+# Check if service is enabled
+is_enabled() {
+    systemctl is-enabled "$SERVICE_NAME" 2>/dev/null || echo "disabled"
+}
+
+# Command: status
+cmd_status() {
+    local status=$(get_status)
+    local enabled=$(is_enabled)
+    
+    echo "=== OpenBox Window Manager Status ==="
+    echo ""
+    
+    if [ "$status" = "active" ]; then
+        print_success "OpenBox is running"
+    else
+        print_warning "OpenBox is not running"
+    fi
+    
+    echo "Status: $status"
+    echo "Enabled: $enabled"
+    echo ""
+    
+    # Show detailed systemd status
+    systemctl status "$SERVICE_NAME" --no-pager -l || true
+    
+    echo ""
+    
+    # Check for OpenBox process
+    if pgrep -u ludos openbox >/dev/null; then
+        print_success "OpenBox process detected"
+        echo "OpenBox PID: $(pgrep -u ludos openbox | tr '\n' ' ')"
+    else
+        print_warning "No OpenBox process found"
+    fi
+    
+    echo ""
+    
+    # Check display connection
+    if sudo -u ludos env DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
+        print_success "Display :0 is accessible"
+    else
+        print_error "Cannot connect to display :0"
+        print_info "Ensure ludos-gamescope-display.service is running"
+    fi
+}
+
+# Command: start
+cmd_start() {
+    print_info "Starting OpenBox window manager..."
+    
+    if sudo systemctl start "$SERVICE_NAME"; then
+        sleep 2
+        local status=$(get_status)
+        if [ "$status" = "active" ]; then
+            print_success "OpenBox started successfully"
+            echo ""
+            print_info "Window manager is ready on display :0"
+        else
+            print_error "Service started but not active"
+            print_info "Check logs with: $SCRIPT_NAME logs"
+            return 1
+        fi
+    else
+        print_error "Failed to start OpenBox"
+        return 1
+    fi
+}
+
+# Command: stop
+cmd_stop() {
+    print_info "Stopping OpenBox..."
+    
+    if sudo systemctl stop "$SERVICE_NAME"; then
+        print_success "OpenBox stopped"
+        print_warning "Steam and games may not display properly without OpenBox"
+    else
+        print_error "Failed to stop OpenBox"
+        return 1
+    fi
+}
+
+# Command: restart
+cmd_restart() {
+    print_info "Restarting OpenBox..."
+    
+    if sudo systemctl restart "$SERVICE_NAME"; then
+        sleep 2
+        local status=$(get_status)
+        if [ "$status" = "active" ]; then
+            print_success "OpenBox restarted successfully"
+        else
+            print_error "Service restarted but not active"
+            return 1
+        fi
+    else
+        print_error "Failed to restart OpenBox"
+        return 1
+    fi
+}
+
+# Command: enable
+cmd_enable() {
+    print_info "Enabling OpenBox auto-start..."
+    
+    if sudo systemctl enable "$SERVICE_NAME"; then
+        print_success "OpenBox will start on boot"
+    else
+        print_error "Failed to enable OpenBox service"
+        return 1
+    fi
+}
+
+# Command: disable
+cmd_disable() {
+    print_info "Disabling OpenBox auto-start..."
+    
+    if sudo systemctl disable "$SERVICE_NAME"; then
+        print_success "OpenBox will not start on boot"
+        print_warning "You'll need to start it manually for Steam to work"
+    else
+        print_error "Failed to disable OpenBox service"
+        return 1
+    fi
+}
+
+# Command: logs
+cmd_logs() {
+    print_info "Showing OpenBox logs..."
+    echo ""
+    journalctl -u "$SERVICE_NAME" -n 50 --no-pager
+    
+    echo ""
+    print_info "For live logs, use: journalctl -u $SERVICE_NAME -f"
+}
+
+# Command: reconfigure
+cmd_reconfigure() {
+    print_info "Reloading OpenBox configuration..."
+    
+    # Check if OpenBox is running
+    if [ "$(get_status)" != "active" ]; then
+        print_error "OpenBox is not running"
+        print_info "Start it with: $SCRIPT_NAME start"
+        return 1
+    fi
+    
+    # Send SIGUSR2 to OpenBox to reconfigure
+    if sudo -u ludos env DISPLAY=:0 openbox --reconfigure 2>/dev/null; then
+        print_success "Configuration reloaded"
+    else
+        print_warning "Reconfigure command sent, but may have failed"
+        print_info "Try restarting instead: $SCRIPT_NAME restart"
+    fi
+}
+
+# Command: config
+cmd_config() {
+    print_info "OpenBox configuration location:"
+    echo "  $CONFIG_FILE"
+    echo ""
+    
+    if [ -f "$CONFIG_FILE" ]; then
+        print_success "Configuration file exists"
+        echo ""
+        echo "To edit configuration:"
+        echo "  sudo -u ludos nano $CONFIG_FILE"
+        echo "  # or"
+        echo "  sudo -u ludos vim $CONFIG_FILE"
+        echo ""
+        echo "After editing, reload with:"
+        echo "  $SCRIPT_NAME reconfigure"
+    else
+        print_error "Configuration file not found"
+        print_info "Restore from: /etc/ludos/openbox-rc.xml (if available)"
+    fi
+}
+
+# Command: verify
+cmd_verify() {
+    print_info "Verifying OpenBox window manager..."
+    echo ""
+    
+    local errors=0
+    
+    # Check 1: Service running
+    echo -n "✓ Checking OpenBox service... "
+    if [ "$(get_status)" = "active" ]; then
+        print_success "Running"
+    else
+        print_error "Not running"
+        ((errors++))
+    fi
+    
+    # Check 2: Process exists
+    echo -n "✓ Checking OpenBox process... "
+    if pgrep -u ludos openbox >/dev/null; then
+        print_success "Found"
+    else
+        print_error "Not found"
+        ((errors++))
+    fi
+    
+    # Check 3: Display accessible
+    echo -n "✓ Checking display :0... "
+    if sudo -u ludos env DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
+        print_success "Accessible"
+    else
+        print_error "Not accessible"
+        ((errors++))
+    fi
+    
+    # Check 4: Config file exists
+    echo -n "✓ Checking configuration... "
+    if [ -f "$CONFIG_FILE" ]; then
+        print_success "Present"
+    else
+        print_error "Missing"
+        ((errors++))
+    fi
+    
+    # Check 5: Gamescope running
+    echo -n "✓ Checking Gamescope display... "
+    if systemctl is-active ludos-gamescope-display.service >/dev/null 2>&1; then
+        print_success "Running"
+    else
+        print_error "Not running"
+        ((errors++))
+    fi
+    
+    echo ""
+    
+    if [ $errors -eq 0 ]; then
+        print_success "All checks passed! OpenBox is working correctly."
+        return 0
+    else
+        print_error "Found $errors issue(s)"
+        echo ""
+        print_info "Troubleshooting steps:"
+        echo "  1. Restart Gamescope: sudo systemctl restart ludos-gamescope-display.service"
+        echo "  2. Restart OpenBox: $SCRIPT_NAME restart"
+        echo "  3. Check logs: $SCRIPT_NAME logs"
+        echo "  4. See: docs/openbox-troubleshooting.md"
+        return 1
+    fi
+}
+
+# Main command dispatcher
+main() {
+    if [ $# -eq 0 ]; then
+        show_usage
+        exit 0
+    fi
+    
+    local command="$1"
+    shift
+    
+    case "$command" in
+        start)
+            cmd_start
+            ;;
+        stop)
+            cmd_stop
+            ;;
+        restart)
+            cmd_restart
+            ;;
+        status)
+            cmd_status
+            ;;
+        enable)
+            cmd_enable
+            ;;
+        disable)
+            cmd_disable
+            ;;
+        logs)
+            cmd_logs
+            ;;
+        reconfigure|reload)
+            cmd_reconfigure
+            ;;
+        config|configure)
+            cmd_config
+            ;;
+        verify|check|test)
+            cmd_verify
+            ;;
+        help|--help|-h)
+            show_usage
+            ;;
+        *)
+            print_error "Unknown command: $command"
+            echo ""
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

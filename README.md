@@ -9,6 +9,7 @@ LudOS is a specialized headless gaming virtual machine image built on Fedora 42 
 - **NVIDIA GRID vGPU Compatible**: Full support for GRID licensing and mdev profiles
 - **Sunshine Streaming**: Built-in streaming server for Moonlight clients
 - **Gamescope Integration**: Virtual display compositor for seamless gaming
+- **OpenBox Window Manager**: Lightweight window management for proper Steam UI rendering
 - **Steam Ready**: Pre-configured Steam installation with Proton compatibility
 - **Container-Based**: Built using bootc for atomic updates and rollbacks
 
@@ -217,13 +218,16 @@ For gaming with licensing support, use **GRID vGPU drivers**.
 ## Documentation
 
 ### Guides
+- **[Command Reference](docs/command-reference.md)**: Complete guide to all ludos-* management commands
 - **[Deployment Guide](docs/deployment-guide.md)**: Complete Tesla driver deployment procedure (Secure Boot enabled)
 - **[Unsigned Deployment Guide](docs/unsigned-deployment.md)**: Quick deployment with Secure Boot disabled
 - **[Gamescope Display Guide](docs/gamescope-display-guide.md)**: Virtual display management and Sunshine integration
+- **[OpenBox Troubleshooting](docs/openbox-troubleshooting.md)**: Window manager troubleshooting for Steam and game visibility
 - **[Tesla Quick Reference](docs/tesla-quick-reference.md)**: Essential Tesla commands and troubleshooting
 - **[Build Instructions](docs/build-instructions.md)**: Detailed build and deployment guide
 
 ### Release Notes
+- **[v0.8.0](releases/v0.8.0.md)**: OpenBox window manager integration - fixes Steam UI visibility
 - **[v0.7.2](releases/v0.7.2.md)**: Tesla P4 NVENC, Gamescope, and device setup fixes
 - **[v0.7.0](releases/v0.7.0.md)**: Gamescope display improvements
 - **[v0.6.0](releases/v0.6.0.md)**: Initial stable release

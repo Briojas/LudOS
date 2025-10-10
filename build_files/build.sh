@@ -83,7 +83,9 @@ echo "Installing minimal graphics support for headless gaming..."
 dnf5 install -y \
     mesa-dri-drivers \
     mesa-vulkan-drivers \
-    xorg-x11-server-Xwayland
+    xorg-x11-server-Xwayland \
+    openbox \
+    xorg-x11-apps
 
 ### Enable RPM Fusion repositories (required for Steam, NVIDIA drivers, etc.)
 echo "Enabling RPM Fusion repositories..."
@@ -198,9 +200,19 @@ cp /ctx/ludos-tesla-setup /usr/local/bin/
 cp /ctx/ludos-tesla-rebuild-modules /usr/local/bin/
 cp /ctx/ludos-display /usr/local/bin/
 cp /ctx/ludos-steam /usr/local/bin/
+cp /ctx/ludos-openbox /usr/local/bin/
 cp /ctx/ludos-gamescope-display /usr/local/bin/
 cp /ctx/ludos-gamescope-display.service /etc/systemd/system/
+cp /ctx/ludos-openbox.service /etc/systemd/system/
 cp /ctx/steam-bigpicture.service /etc/systemd/system/
+
+### Configure OpenBox for headless gaming
+echo "Configuring OpenBox window manager..."
+# Create ludos user's OpenBox configuration directory
+mkdir -p /var/home/ludos/.config/openbox
+cp /ctx/openbox-rc.xml /var/home/ludos/.config/openbox/rc.xml
+chown -R 1000:1000 /var/home/ludos/.config
+chmod 644 /var/home/ludos/.config/openbox/rc.xml
 
 # Copy nvidia-kmod directory if it exists
 if [ -d /ctx/nvidia-kmod ]; then
@@ -216,6 +228,7 @@ chmod +x /usr/local/bin/ludos-tesla-setup
 chmod +x /usr/local/bin/ludos-tesla-rebuild-modules
 chmod +x /usr/local/bin/ludos-display
 chmod +x /usr/local/bin/ludos-steam
+chmod +x /usr/local/bin/ludos-openbox
 chmod +x /usr/local/bin/ludos-gamescope-display
 
 # Make Tesla build script executable if it exists

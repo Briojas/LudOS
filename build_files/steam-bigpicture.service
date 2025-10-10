@@ -1,10 +1,10 @@
 [Unit]
 Description=Steam Big Picture Mode
 Documentation=https://store.steampowered.com/bigpicture
-After=ludos-gamescope-display.service user@1000.service
-Wants=ludos-gamescope-display.service user@1000.service
-# Start after Gamescope display is ready
-Requires=ludos-gamescope-display.service
+After=ludos-gamescope-display.service ludos-openbox.service user@1000.service
+Wants=ludos-gamescope-display.service ludos-openbox.service user@1000.service
+# Start after Gamescope display and window manager are ready
+Requires=ludos-gamescope-display.service ludos-openbox.service
 
 [Service]
 Type=simple
