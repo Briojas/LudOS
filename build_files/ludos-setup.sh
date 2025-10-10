@@ -173,6 +173,31 @@ echo ""
 echo "Creating ludos user..."
 useradd -m -s /bin/bash -G audio,video,input,render ludos 2>/dev/null || echo "ludos user already exists"
 
+# Fix ludos home directory permissions (may be created with wrong ownership)
+echo "Ensuring correct ludos home directory permissions..."
+chown -R ludos:ludos /var/home/ludos
+chmod 755 /var/home/ludos
+
+# Configure OpenBox window manager for headless gaming
+echo "Configuring OpenBox window manager..."
+if [ -f /etc/ludos/openbox-rc.xml ]; then
+    # Create OpenBox config directory
+    mkdir -p /var/home/ludos/.config/openbox
+    
+    # Copy OpenBox configuration template
+    cp /etc/ludos/openbox-rc.xml /var/home/ludos/.config/openbox/rc.xml
+    
+    # Ensure correct ownership (important: other services may create .config as root)
+    chown -R ludos:ludos /var/home/ludos/.config
+    chmod 755 /var/home/ludos/.config
+    chmod 755 /var/home/ludos/.config/openbox
+    chmod 644 /var/home/ludos/.config/openbox/rc.xml
+    
+    echo "OpenBox configuration created at /var/home/ludos/.config/openbox/rc.xml"
+else
+    echo "Warning: OpenBox configuration template not found at /etc/ludos/openbox-rc.xml"
+fi
+
 # Set up audio for headless operation
 echo "Configuring audio system..."
 systemctl --global enable pipewire.service
@@ -208,6 +233,14 @@ systemctl daemon-reload
 systemctl enable ludos-gamescope-display.service
 echo "Gamescope display service enabled"
 
+# Enable OpenBox window manager service if it exists
+if systemctl list-unit-files ludos-openbox.service >/dev/null 2>&1; then
+    systemctl enable ludos-openbox.service
+    echo "OpenBox window manager service enabled"
+else
+    echo "Warning: ludos-openbox.service not found - skipping service enablement"
+fi
+
 # Only enable sunshine service if it exists
 if systemctl list-unit-files sunshine.service >/dev/null 2>&1; then
     systemctl enable sunshine.service
@@ -234,10 +267,18 @@ echo "2. Configure Sunshine by accessing the web interface at https://localhost:
 echo "3. Reboot the system to start all services"
 echo "4. Check service status with: systemctl status ludos-gamescope-display sunshine nvidia-gridd"
 echo ""
-echo "Display Management Commands:"
+echo "Management Commands:"
 echo "  ludos-display status      - Check display service status"
 echo "  ludos-display start       - Start the display"
 echo "  ludos-display logs        - View display logs"
-echo "  ludos-display set-backend - Change display backend (xvfb/headless/drm)"
+echo "  ludos-openbox verify      - Verify window manager is working"
+echo "  ludos-openbox status      - Check OpenBox status"
+echo "  ludos-steam status        - Check Steam status"
 echo ""
 echo "For headless operation, connect via Moonlight client to this system's IP address"
+echo ""
+echo "Service startup order:"
+echo "  1. ludos-gamescope-display.service  (creates virtual displays)"
+echo "  2. ludos-openbox.service            (manages windows)"
+echo "  3. steam-bigpicture.service         (runs Steam)"
+echo "  4. sunshine.service                 (streaming server)"

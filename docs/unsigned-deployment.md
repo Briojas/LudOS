@@ -213,8 +213,33 @@ ludos-display test
 # - Display :1 is responding (1920x1080)
 # - Gamescope process running
 # - nvidia-smi shows gamescope using GPU memory
+```
 
-### 9. Start Steam Big Picture
+### 9. Verify OpenBox Window Manager
+
+OpenBox is required for Steam and game windows to display properly. The setup script configured it automatically:
+
+```bash
+# Verify OpenBox is running
+ludos-openbox verify
+
+# Expected output:
+# ✓ Checking OpenBox service... Running
+# ✓ Checking OpenBox process... Found
+# ✓ Checking display :0... Accessible
+# ✓ Checking configuration... Present
+# ✓ Checking Gamescope display... Running
+# All checks passed! OpenBox is working correctly.
+```
+
+**Why OpenBox?** Without a window manager, Steam and games cannot properly display their UI windows. OpenBox provides lightweight window management for the Gamescope headless environment.
+
+**Note**: The setup script automatically:
+- Fixed home directory permissions
+- Created OpenBox configuration from template
+- Enabled and started the OpenBox service
+
+### 10. Start Steam Big Picture
 
 ```bash
 # Enable and start Steam Big Picture service
