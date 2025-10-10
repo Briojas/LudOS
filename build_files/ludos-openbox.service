@@ -25,6 +25,9 @@ Environment=LD_LIBRARY_PATH=/usr/lib64:/usr/local/lib64
 # Wait for Gamescope display to be ready
 ExecStartPre=/bin/sleep 3
 
+# Ensure OpenBox config exists in user home (copy from template if missing)
+ExecStartPre=/bin/bash -c 'if [ ! -f /var/home/ludos/.config/openbox/rc.xml ]; then mkdir -p /var/home/ludos/.config/openbox && cp /etc/ludos/openbox-rc.xml /var/home/ludos/.config/openbox/rc.xml; fi'
+
 # Start OpenBox window manager
 # --startup flag runs the specified command instead of openbox-session
 ExecStart=/usr/bin/openbox --config-file /var/home/ludos/.config/openbox/rc.xml

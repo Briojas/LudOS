@@ -208,11 +208,9 @@ cp /ctx/steam-bigpicture.service /etc/systemd/system/
 
 ### Configure OpenBox for headless gaming
 echo "Configuring OpenBox window manager..."
-# Create ludos user's OpenBox configuration directory
-mkdir -p /var/home/ludos/.config/openbox
-cp /ctx/openbox-rc.xml /var/home/ludos/.config/openbox/rc.xml
-chown -R 1000:1000 /var/home/ludos/.config
-chmod 644 /var/home/ludos/.config/openbox/rc.xml
+# Store OpenBox configuration as template (will be copied to user home during setup)
+cp /ctx/openbox-rc.xml /etc/ludos/openbox-rc.xml
+chmod 644 /etc/ludos/openbox-rc.xml
 
 # Copy nvidia-kmod directory if it exists
 if [ -d /ctx/nvidia-kmod ]; then
