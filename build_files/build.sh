@@ -85,7 +85,7 @@ dnf5 install -y \
     mesa-vulkan-drivers \
     xorg-x11-server-Xwayland \
     openbox \
-    xorg-x11-apps
+    xorg-x11-utils
 
 ### Enable RPM Fusion repositories (required for Steam, NVIDIA drivers, etc.)
 echo "Enabling RPM Fusion repositories..."
