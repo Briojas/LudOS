@@ -250,12 +250,15 @@ else
     echo "If Sunshine was installed via rpm-ostree, please reboot and run this script again"
 fi
 
-# Enable Steam Big Picture service if it exists
-if systemctl list-unit-files steam-bigpicture.service >/dev/null 2>&1; then
-    systemctl enable steam-bigpicture.service
-    echo "Steam Big Picture service enabled"
+# Enable Steam Big Picture user service if it exists
+# Steam runs as a user service to avoid SELinux issues with home directory access
+if [ -f "$HOME/.config/systemd/user/steam-bigpicture.service" ]; then
+    systemctl --user enable steam-bigpicture.service
+    # Enable lingering so service runs without active session
+    loginctl enable-linger "$USER"
+    echo "Steam Big Picture user service enabled"
 else
-    echo "Warning: steam-bigpicture.service not found - skipping service enablement"
+    echo "Warning: steam-bigpicture.service not found in ~/.config/systemd/user/ - skipping service enablement"
 fi
 
 echo ""

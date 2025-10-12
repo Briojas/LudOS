@@ -1,63 +1,59 @@
+# This is a systemd USER service for Steam Big Picture Mode
+# Deploy to: /etc/skel/.config/systemd/user/steam-bigpicture.service
+# Or for existing user: ~/.config/systemd/user/steam-bigpicture.service
+#
+# Enable with: systemctl --user enable steam-bigpicture.service
+# Start with: systemctl --user start steam-bigpicture.service
+#
+# Note: Requires loginctl enable-linger for the user to run without active session
+
 [Unit]
 Description=Steam Big Picture Mode
 Documentation=https://store.steampowered.com/bigpicture
-After=ludos-gamescope-display.service ludos-openbox.service user@1000.service
-Wants=ludos-gamescope-display.service ludos-openbox.service user@1000.service
-# Start after Gamescope display and window manager are ready
-Requires=ludos-gamescope-display.service ludos-openbox.service
+After=ludos-gamescope-display.service ludos-openbox.service
+Wants=ludos-gamescope-display.service ludos-openbox.service
 
 [Service]
 Type=simple
-User=ludos
-Group=ludos
+WorkingDirectory=%h
 
 # Use Gamescope's primary display
 Environment=DISPLAY=:0
-Environment=HOME=/var/home/ludos
+Environment=XAUTHORITY=/dev/null
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 
-# NVIDIA environment
-Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
-Environment=__NV_PRIME_RENDER_OFFLOAD=1
-Environment=__VK_LAYER_NV_optimus=NVIDIA_only
-Environment=LD_LIBRARY_PATH=/usr/lib64:/usr/local/lib64
+# Force Mesa software rendering for CEF (Tesla P4 has Vulkan WSI issues)
+Environment=LIBGL_ALWAYS_SOFTWARE=1
+Environment=GALLIUM_DRIVER=llvmpipe
+Environment=MESA_GL_VERSION_OVERRIDE=3.3
+Environment=MESA_GLSL_VERSION_OVERRIDE=330
+
+# Completely disable Vulkan (Tesla P4 lacks WSI extensions for X11)
+Environment=VK_ICD_FILENAMES=
+Environment=VK_LOADER_DISABLE=1
+Environment=DISABLE_VULKAN=1
+Environment=DISABLE_LAYER_AMD_SWITCHABLE_GRAPHICS_1=1
+Environment=DISABLE_VK_LAYER_VALVE_steam_fossilize_1=1
+
+# Disable Steam's compositor to avoid conflicts with OpenBox
+Environment=STEAM_DISABLE_COMPOSITING=1
 
 # Steam environment
 Environment=STEAM_RUNTIME=1
 Environment=STEAM_RUNTIME_PREFER_HOST_LIBRARIES=0
 
-# Wait for Gamescope display to fully initialize
-ExecStartPre=/bin/sleep 5
+# Wait for OpenBox to be ready (starts 3s after Gamescope + margin)
+ExecStartPre=/bin/sleep 10
 
-# Launch Steam in Big Picture mode
-# Use -gamepadui for the newer Big Picture interface
-ExecStart=/usr/bin/steam -gamepadui -fulldesktopres
+# Launch Steam in Big Picture mode with minimal flags
+# -disable-gpu: Disable GPU process in CEF (forced to software rendering)
+# -gamepadui: Big Picture Mode interface
+# -noverifyfiles: Skip file verification on startup
+ExecStart=/usr/bin/steam -gamepadui -fulldesktopres -disable-gpu -noverifyfiles
 
 # Restart if Steam crashes
 Restart=on-failure
 RestartSec=10s
 
-# Grant GPU access
-SupplementaryGroups=video render input audio
-
-# Allow access to DRI devices (GPU)
-DeviceAllow=/dev/dri/card0 rw
-DeviceAllow=/dev/dri/card1 rw
-DeviceAllow=/dev/dri/renderD128 rw
-DeviceAllow=/dev/dri/renderD129 rw
-
-# Allow access to NVIDIA devices
-DeviceAllow=/dev/nvidia0 rw
-DeviceAllow=/dev/nvidia1 rw
-DeviceAllow=/dev/nvidiactl rw
-DeviceAllow=/dev/nvidia-modeset rw
-DeviceAllow=/dev/nvidia-uvm rw
-DeviceAllow=/dev/nvidia-uvm-tools rw
-
-# Input device access
-DeviceAllow=/dev/uinput rw
-DeviceAllow=/dev/input/event* rw
-DeviceAllow=char-input rw
-
 [Install]
-WantedBy=graphical.target
+WantedBy=default.target

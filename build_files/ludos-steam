@@ -7,6 +7,7 @@ set -euo pipefail
 
 SCRIPT_NAME="ludos-steam"
 SERVICE_NAME="steam-bigpicture.service"
+STEAM_USER="ludos"  # Steam runs as user service
 
 # Color output
 if [ -t 1 ]; then
@@ -75,12 +76,14 @@ EOF
 
 # Get service status
 get_status() {
-    systemctl is-active "$SERVICE_NAME" 2>/dev/null || echo "inactive"
+    sudo -u "$STEAM_USER" XDG_RUNTIME_DIR=/run/user/$(id -u "$STEAM_USER") \
+        systemctl --user is-active "$SERVICE_NAME" 2>/dev/null || echo "inactive"
 }
 
 # Check if service is enabled
 is_enabled() {
-    systemctl is-enabled "$SERVICE_NAME" 2>/dev/null || echo "disabled"
+    sudo -u "$STEAM_USER" XDG_RUNTIME_DIR=/run/user/$(id -u "$STEAM_USER") \
+        systemctl --user is-enabled "$SERVICE_NAME" 2>/dev/null || echo "disabled"
 }
 
 # Command: status
@@ -102,14 +105,15 @@ cmd_status() {
     echo ""
     
     # Show detailed systemd status
-    systemctl status "$SERVICE_NAME" --no-pager -l || true
+    sudo -u "$STEAM_USER" XDG_RUNTIME_DIR=/run/user/$(id -u "$STEAM_USER") \
+        systemctl --user status "$SERVICE_NAME" --no-pager -l || true
     
     echo ""
     
     # Check for Steam process
-    if pgrep -u ludos steam >/dev/null; then
+    if pgrep -u "$STEAM_USER" steam >/dev/null; then
         print_success "Steam process detected"
-        echo "Steam PIDs: $(pgrep -u ludos steam | tr '\n' ' ')"
+        echo "Steam PIDs: $(pgrep -u "$STEAM_USER" steam | tr '\n' ' ')"
     else
         print_warning "No Steam process found"
     fi
@@ -119,7 +123,8 @@ cmd_status() {
 cmd_start() {
     print_info "Starting Steam Big Picture..."
     
-    if sudo systemctl start "$SERVICE_NAME"; then
+    if sudo -u "$STEAM_USER" XDG_RUNTIME_DIR=/run/user/$(id -u "$STEAM_USER") \
+        systemctl --user start "$SERVICE_NAME"; then
         sleep 3
         local status=$(get_status)
         if [ "$status" = "active" ]; then
@@ -142,7 +147,8 @@ cmd_start() {
 cmd_stop() {
     print_info "Stopping Steam..."
     
-    if sudo systemctl stop "$SERVICE_NAME"; then
+    if sudo -u "$STEAM_USER" XDG_RUNTIME_DIR=/run/user/$(id -u "$STEAM_USER") \
+        systemctl --user stop "$SERVICE_NAME"; then
         print_success "Steam stopped"
     else
         print_error "Failed to stop Steam"
@@ -154,7 +160,8 @@ cmd_stop() {
 cmd_restart() {
     print_info "Restarting Steam..."
     
-    if sudo systemctl restart "$SERVICE_NAME"; then
+    if sudo -u "$STEAM_USER" XDG_RUNTIME_DIR=/run/user/$(id -u "$STEAM_USER") \
+        systemctl --user restart "$SERVICE_NAME"; then
         sleep 3
         local status=$(get_status)
         if [ "$status" = "active" ]; then
@@ -173,7 +180,10 @@ cmd_restart() {
 cmd_enable() {
     print_info "Enabling Steam auto-start..."
     
-    if sudo systemctl enable "$SERVICE_NAME"; then
+    if sudo -u "$STEAM_USER" XDG_RUNTIME_DIR=/run/user/$(id -u "$STEAM_USER") \
+        systemctl --user enable "$SERVICE_NAME"; then
+        # Enable lingering so service runs without active session
+        sudo loginctl enable-linger "$STEAM_USER"
         print_success "Steam will start on boot"
     else
         print_error "Failed to enable Steam service"
@@ -185,7 +195,8 @@ cmd_enable() {
 cmd_disable() {
     print_info "Disabling Steam auto-start..."
     
-    if sudo systemctl disable "$SERVICE_NAME"; then
+    if sudo -u "$STEAM_USER" XDG_RUNTIME_DIR=/run/user/$(id -u "$STEAM_USER") \
+        systemctl --user disable "$SERVICE_NAME"; then
         print_success "Steam will not start on boot"
     else
         print_error "Failed to disable Steam service"
@@ -197,10 +208,11 @@ cmd_disable() {
 cmd_logs() {
     print_info "Showing Steam logs..."
     echo ""
-    journalctl -u "$SERVICE_NAME" -n 50 --no-pager
+    sudo -u "$STEAM_USER" XDG_RUNTIME_DIR=/run/user/$(id -u "$STEAM_USER") \
+        journalctl --user -u "$SERVICE_NAME" -n 50 --no-pager
     
     echo ""
-    print_info "For live logs, use: journalctl -u $SERVICE_NAME -f"
+    print_info "For live logs, use: sudo -u $STEAM_USER XDG_RUNTIME_DIR=/run/user/\$(id -u $STEAM_USER) journalctl --user -u $SERVICE_NAME -f"
 }
 
 # Command: desktop (launch desktop mode manually)
@@ -217,9 +229,10 @@ cmd_desktop() {
     fi
     
     # Launch Steam in desktop mode as ludos user
-    sudo -u ludos env DISPLAY=:0 \
-        HOME=/var/home/ludos \
-        XDG_RUNTIME_DIR=/run/user/1000 \
+    local user_id=$(id -u "$STEAM_USER")
+    sudo -u "$STEAM_USER" env DISPLAY=:0 \
+        HOME=/var/home/"$STEAM_USER" \
+        XDG_RUNTIME_DIR=/run/user/"$user_id" \
         __GLX_VENDOR_LIBRARY_NAME=nvidia \
         __NV_PRIME_RENDER_OFFLOAD=1 \
         steam &

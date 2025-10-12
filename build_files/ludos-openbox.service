@@ -30,8 +30,9 @@ ExecStartPre=/bin/sleep 3
 # This is required due to bootc home directory initialization timing
 
 # Start OpenBox window manager
+# --replace flag replaces any existing window manager (e.g., steamcompmgr)
 # --startup flag runs the specified command instead of openbox-session
-ExecStart=/usr/bin/openbox --config-file /var/home/ludos/.config/openbox/rc.xml
+ExecStart=/usr/bin/openbox --replace --config-file /var/home/ludos/.config/openbox/rc.xml
 
 # Restart policy
 Restart=on-failure

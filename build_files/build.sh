@@ -202,9 +202,22 @@ cp /ctx/ludos-display /usr/local/bin/
 cp /ctx/ludos-steam /usr/local/bin/
 cp /ctx/ludos-openbox /usr/local/bin/
 cp /ctx/ludos-gamescope-display /usr/local/bin/
+cp /ctx/steam-wrapper.sh /usr/local/bin/
 cp /ctx/ludos-gamescope-display.service /etc/systemd/system/
 cp /ctx/ludos-openbox.service /etc/systemd/system/
-cp /ctx/steam-bigpicture.service /etc/systemd/system/
+
+# Deploy Steam as a USER service to avoid SELinux issues with home directory access
+echo "Setting up Steam user service..."
+mkdir -p /etc/skel/.config/systemd/user/
+cp /ctx/steam-bigpicture.service /etc/skel/.config/systemd/user/
+# Also deploy to ludos user if exists (for upgrades)
+if id -u ludos &>/dev/null; then
+    mkdir -p /var/home/ludos/.config/systemd/user/
+    cp /ctx/steam-bigpicture.service /var/home/ludos/.config/systemd/user/
+    chown -R ludos:ludos /var/home/ludos/.config
+    # Enable lingering so user services run without active session
+    loginctl enable-linger ludos || echo "Warning: Could not enable lingering for ludos user"
+fi
 
 ### Configure OpenBox for headless gaming
 echo "Configuring OpenBox window manager..."
@@ -228,6 +241,7 @@ chmod +x /usr/local/bin/ludos-display
 chmod +x /usr/local/bin/ludos-steam
 chmod +x /usr/local/bin/ludos-openbox
 chmod +x /usr/local/bin/ludos-gamescope-display
+chmod +x /usr/local/bin/steam-wrapper.sh
 
 # Make Tesla build script executable if it exists
 if [ -f /etc/ludos/nvidia-kmod/build-tesla-kmod.sh ]; then
