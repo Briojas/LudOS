@@ -100,6 +100,8 @@ start_gamescope() {
             gamescope_args+=(--backend sdl)
             gamescope_args+=(--nested-refresh "$REFRESH_RATE")
             gamescope_args+=(--xwayland-count 2)
+            # Prefer NVIDIA Tesla P4 GPU (PCI ID format) - ensures GPU acceleration
+            gamescope_args+=(--prefer-vk-device 10de:1bb3)
             ;;
         headless)
             # Headless mode - no X server needed

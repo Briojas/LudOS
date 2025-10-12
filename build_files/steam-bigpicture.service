@@ -10,8 +10,8 @@
 [Unit]
 Description=Steam Big Picture Mode
 Documentation=https://store.steampowered.com/bigpicture
-After=ludos-gamescope-display.service ludos-openbox.service
-Wants=ludos-gamescope-display.service ludos-openbox.service
+After=ludos-gamescope-display.service
+Wants=ludos-gamescope-display.service
 
 [Service]
 Type=simple
@@ -21,6 +21,11 @@ WorkingDirectory=%h
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/dev/null
 Environment=XDG_RUNTIME_DIR=/run/user/1000
+
+# Force resolution for rootless Xwayland (Steam resolution detection workaround)
+Environment=SDL_VIDEO_X11_MODE_WIDTH=1920
+Environment=SDL_VIDEO_X11_MODE_HEIGHT=1080
+Environment=SDL_VIDEO_FULLSCREEN_DISPLAY=0
 
 # Force Mesa software rendering for CEF (Tesla P4 has Vulkan WSI issues)
 Environment=LIBGL_ALWAYS_SOFTWARE=1
@@ -35,15 +40,15 @@ Environment=DISABLE_VULKAN=1
 Environment=DISABLE_LAYER_AMD_SWITCHABLE_GRAPHICS_1=1
 Environment=DISABLE_VK_LAYER_VALVE_steam_fossilize_1=1
 
-# Disable Steam's compositor to avoid conflicts with OpenBox
+# Disable Steam's compositor (use Gamescope for compositing)
 Environment=STEAM_DISABLE_COMPOSITING=1
 
 # Steam environment
 Environment=STEAM_RUNTIME=1
 Environment=STEAM_RUNTIME_PREFER_HOST_LIBRARIES=0
 
-# Wait for OpenBox to be ready (starts 3s after Gamescope + margin)
-ExecStartPre=/bin/sleep 10
+# Wait for Gamescope display to be fully ready
+ExecStartPre=/bin/sleep 5
 
 # Launch Steam in Big Picture mode with minimal flags
 # -disable-gpu: Disable GPU process in CEF (forced to software rendering)

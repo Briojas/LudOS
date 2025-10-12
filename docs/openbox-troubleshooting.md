@@ -149,7 +149,70 @@ sudo systemctl restart ludos-openbox.service
 sudo systemctl restart steam-bigpicture.service
 ```
 
-### Issue 5: Multiple Window Managers Conflict
+### Issue 5: OpenBox Says "A window manager is already running"
+
+**Symptom**: 
+- OpenBox exits immediately with message: "Openbox-Message: A window manager is already running on screen 0"
+- `ludos-openbox.service` shows inactive/dead despite being enabled
+- Gamescope displays `:0` and `:1` show `-rootless` flag in process list
+
+**Root Cause**: 
+Gamescope in `headless` mode creates Xwayland servers with the `-rootless` flag, where Gamescope itself acts as the compositor/window manager. This prevents OpenBox from managing windows.
+
+**Diagnosis**:
+```bash
+# Check if Xwayland is running in rootless mode
+ps aux | grep Xwayland
+
+# Expected BAD output (rootless):
+# Xwayland :0 -rootless -core -terminate ...
+
+# Check Gamescope backend
+systemctl show ludos-gamescope-display.service -p Environment | grep BACKEND
+```
+
+**Solution - Switch to Xvfb Backend**:
+```bash
+# Change Gamescope backend to xvfb (allows external window manager)
+sudo ludos-display set-backend xvfb
+
+# Restart services in order
+sudo systemctl restart ludos-gamescope-display.service
+sleep 5
+sudo systemctl restart ludos-openbox.service
+
+# Verify OpenBox is now running
+ludos-openbox verify
+```
+
+**Alternative Solution - On Running System (Temporary)**:
+```bash
+# Stop current services
+sudo systemctl stop ludos-openbox.service
+sudo systemctl stop sunshine.service
+sudo systemctl stop ludos-gamescope-display.service
+
+# Override backend for this session
+sudo mkdir -p /etc/systemd/system/ludos-gamescope-display.service.d
+cat << 'EOF' | sudo tee /etc/systemd/system/ludos-gamescope-display.service.d/backend.conf
+[Service]
+Environment=LUDOS_BACKEND=xvfb
+EOF
+
+# Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl start ludos-gamescope-display.service
+sleep 5
+sudo systemctl start ludos-openbox.service
+sudo systemctl start sunshine.service
+
+# Verify
+ludos-openbox verify
+```
+
+**Note**: The `xvfb` backend uses Xvfb as a virtual framebuffer with Gamescope nested on top. This allows OpenBox to manage windows properly. The `headless` backend is more efficient but incompatible with external window managers.
+
+### Issue 6: Multiple Window Managers Conflict
 
 **Symptom**: Multiple window managers running, causing conflicts
 

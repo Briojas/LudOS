@@ -22,8 +22,9 @@ Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
 Environment=__NV_PRIME_RENDER_OFFLOAD=1
 Environment=LD_LIBRARY_PATH=/usr/lib64:/usr/local/lib64
 
-# Wait for Gamescope display to be ready
-ExecStartPre=/bin/sleep 3
+# Wait for Gamescope display to be ready and verify it's accessible
+ExecStartPre=/bin/sleep 5
+ExecStartPre=/bin/sh -c 'i=0; while [ $i -lt 30 ]; do DISPLAY=:0 xdpyinfo >/dev/null 2>&1 && exit 0; sleep 0.5; i=$((i+1)); done; exit 1'
 
 # Note: OpenBox config must be created manually during initial setup
 # Run: mkdir -p ~/.config/openbox && cp /etc/ludos/openbox-rc.xml ~/.config/openbox/rc.xml
