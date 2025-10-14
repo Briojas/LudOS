@@ -112,6 +112,23 @@ dnf5 install -y \
     xorg-x11-server-Xvfb \
     xdpyinfo
 
+# Install Lutris game launcher for unified library management
+# Lutris replaces Steam Big Picture which has GLX incompatibility with Tesla GPUs
+echo "Installing Lutris game launcher..."
+dnf5 install -y \
+    lutris \
+    python3-gobject \
+    python3-cairo \
+    gtk3 \
+    webkit2gtk3 \
+    gvfs \
+    cabextract \
+    p7zip \
+    curl \
+    fluid-soundfont-gm \
+    wine \
+    winetricks
+
 ### LudOS NVIDIA Driver Strategy:
 # 1. Install minimal OpenGL infrastructure only (no NVIDIA drivers)
 # 2. Provide Tesla kmod build tools for post-install use
@@ -201,10 +218,12 @@ cp /ctx/ludos-tesla-rebuild-modules /usr/local/bin/
 cp /ctx/ludos-display /usr/local/bin/
 cp /ctx/ludos-steam /usr/local/bin/
 cp /ctx/ludos-openbox /usr/local/bin/
+cp /ctx/ludos-lutris /usr/local/bin/
 cp /ctx/ludos-gamescope-display /usr/local/bin/
 cp /ctx/steam-wrapper.sh /usr/local/bin/
 cp /ctx/ludos-gamescope-display.service /etc/systemd/system/
 cp /ctx/ludos-openbox.service /etc/systemd/system/
+cp /ctx/ludos-lutris.service /etc/systemd/system/
 
 # Deploy Steam as a USER service to avoid SELinux issues with home directory access
 echo "Setting up Steam user service..."
@@ -240,6 +259,7 @@ chmod +x /usr/local/bin/ludos-tesla-rebuild-modules
 chmod +x /usr/local/bin/ludos-display
 chmod +x /usr/local/bin/ludos-steam
 chmod +x /usr/local/bin/ludos-openbox
+chmod +x /usr/local/bin/ludos-lutris
 chmod +x /usr/local/bin/ludos-gamescope-display
 chmod +x /usr/local/bin/steam-wrapper.sh
 

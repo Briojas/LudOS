@@ -1,0 +1,48 @@
+[Unit]
+Description=LudOS Lutris Game Launcher
+After=ludos-gamescope-display.service ludos-openbox.service
+Requires=ludos-gamescope-display.service ludos-openbox.service
+Documentation=https://lutris.net/
+
+[Service]
+Type=simple
+User=ludos
+Group=ludos
+
+# Display configuration
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/run/user/1000/ludos/Xauthority"
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
+
+# Lutris configuration
+Environment="LUTRIS_SKIP_INIT=1"
+Environment="LUTRIS_RUNTIME_DISABLED=1"
+Environment="SDL_VIDEODRIVER=x11"
+
+# NVIDIA configuration
+Environment="__GLX_VENDOR_LIBRARY_NAME=nvidia"
+Environment="__VK_LAYER_NV_optimus=NVIDIA_only"
+Environment="VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+
+# Wine configuration for better compatibility
+Environment="WINEDEBUG=-all"
+Environment="WINEFSYNC=1"
+
+# Wait for displays to be ready
+ExecStartPre=/bin/sleep 5
+
+# Start Lutris in fullscreen mode
+ExecStart=/usr/bin/lutris --fullscreen
+
+# Restart on failure
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ludos-lutris
+
+[Install]
+WantedBy=graphical.target

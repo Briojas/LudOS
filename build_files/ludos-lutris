@@ -1,0 +1,184 @@
+#!/bin/bash
+# LudOS Lutris Management Script
+
+set -e
+
+LUTRIS_CONFIG="/var/home/ludos/.config/lutris"
+LUTRIS_SERVICE="ludos-lutris.service"
+
+show_status() {
+    echo "=== LudOS Lutris Status ==="
+    echo ""
+    
+    if systemctl is-active --quiet $LUTRIS_SERVICE; then
+        echo "[SUCCESS] Lutris is running"
+        echo "Status: $(systemctl is-active $LUTRIS_SERVICE)"
+        echo "Enabled: $(systemctl is-enabled $LUTRIS_SERVICE)"
+    else
+        echo "[ERROR] Lutris is not running"
+        echo "Status: $(systemctl is-active $LUTRIS_SERVICE)"
+    fi
+    
+    echo ""
+    systemctl status $LUTRIS_SERVICE --no-pager || true
+}
+
+start_lutris() {
+    echo "Starting Lutris..."
+    systemctl start $LUTRIS_SERVICE
+    sleep 2
+    if systemctl is-active --quiet $LUTRIS_SERVICE; then
+        echo "[SUCCESS] Lutris started successfully"
+    else
+        echo "[ERROR] Lutris failed to start"
+        exit 1
+    fi
+}
+
+stop_lutris() {
+    echo "Stopping Lutris..."
+    systemctl stop $LUTRIS_SERVICE
+    echo "[SUCCESS] Lutris stopped"
+}
+
+enable_lutris() {
+    echo "Enabling Lutris to start on boot..."
+    systemctl enable $LUTRIS_SERVICE
+    echo "[SUCCESS] Lutris enabled"
+}
+
+disable_lutris() {
+    echo "Disabling Lutris autostart..."
+    systemctl disable $LUTRIS_SERVICE
+    echo "[SUCCESS] Lutris disabled"
+}
+
+configure_steam() {
+    echo "Configuring Steam integration..."
+    
+    # Ensure Lutris config directory exists
+    mkdir -p "$LUTRIS_CONFIG"
+    
+    # Add Steam runner configuration
+    cat > "$LUTRIS_CONFIG/steam.yml" << 'EOF'
+system:
+  disable_runtime: false
+  prefer_system_libs: false
+  
+game:
+  runner: steam
+EOF
+
+    chown -R ludos:ludos "$LUTRIS_CONFIG"
+    echo "[SUCCESS] Steam integration configured"
+}
+
+first_time_setup() {
+    echo "=== LudOS Lutris First-Time Setup ==="
+    echo ""
+    
+    # Configure Lutris directories
+    echo "[1/4] Creating Lutris configuration..."
+    mkdir -p "$LUTRIS_CONFIG/games"
+    mkdir -p "$LUTRIS_CONFIG/runners"
+    chown -R ludos:ludos "$LUTRIS_CONFIG"
+    
+    # Configure Steam integration
+    echo "[2/4] Configuring Steam integration..."
+    configure_steam
+    
+    # Enable service
+    echo "[3/4] Enabling Lutris service..."
+    systemctl enable $LUTRIS_SERVICE
+    
+    # Start service
+    echo "[4/4] Starting Lutris..."
+    systemctl start $LUTRIS_SERVICE
+    
+    echo ""
+    echo "[SUCCESS] Lutris setup complete!"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Connect via Sunshine/Moonlight"
+    echo "  2. Lutris should launch in fullscreen"
+    echo "  3. Navigate to Sources → Add Steam"
+    echo "  4. Your Steam library will appear"
+}
+
+show_help() {
+    cat << 'EOF'
+LudOS Lutris Management Tool
+
+Usage: ludos-lutris <command>
+
+Commands:
+    status      Show Lutris service status
+    start       Start Lutris launcher
+    stop        Stop Lutris launcher
+    enable      Enable Lutris autostart on boot
+    disable     Disable Lutris autostart
+    restart     Restart Lutris service
+    logs        Show Lutris logs (follow mode)
+    configure   Configure Steam integration
+    setup       Run first-time setup
+    help        Show this help message
+
+Examples:
+    ludos-lutris status
+    ludos-lutris setup       # First time only
+    ludos-lutris enable
+    ludos-lutris logs
+
+Troubleshooting:
+    # Check if Lutris is running
+    ludos-lutris status
+    
+    # View recent logs
+    journalctl -u ludos-lutris.service -n 50
+    
+    # Restart if stuck
+    ludos-lutris restart
+
+EOF
+}
+
+case "${1:-}" in
+    status)
+        show_status
+        ;;
+    start)
+        start_lutris
+        ;;
+    stop)
+        stop_lutris
+        ;;
+    enable)
+        enable_lutris
+        ;;
+    disable)
+        disable_lutris
+        ;;
+    restart)
+        stop_lutris
+        sleep 2
+        start_lutris
+        ;;
+    logs)
+        journalctl -u $LUTRIS_SERVICE -f
+        ;;
+    configure)
+        configure_steam
+        ;;
+    setup)
+        first_time_setup
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        echo "Error: Unknown command '${1:-}'"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac

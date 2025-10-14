@@ -250,16 +250,34 @@ else
     echo "If Sunshine was installed via rpm-ostree, please reboot and run this script again"
 fi
 
-# Enable Steam Big Picture user service if it exists
-# Steam runs as a user service to avoid SELinux issues with home directory access
-if [ -f "$HOME/.config/systemd/user/steam-bigpicture.service" ]; then
-    systemctl --user enable steam-bigpicture.service
-    # Enable lingering so service runs without active session
-    loginctl enable-linger "$USER"
-    echo "Steam Big Picture user service enabled"
-else
-    echo "Warning: steam-bigpicture.service not found in ~/.config/systemd/user/ - skipping service enablement"
-fi
+# Configure Lutris game launcher
+echo "Configuring Lutris game launcher..."
+
+# Create Lutris configuration directory
+mkdir -p /var/home/ludos/.config/lutris/games
+mkdir -p /var/home/ludos/.config/lutris/runners
+chown -R ludos:ludos /var/home/ludos/.config/lutris
+
+# Create Steam integration configuration
+cat > /var/home/ludos/.config/lutris/steam.yml << 'LUTRISCONF'
+system:
+  disable_runtime: false
+  prefer_system_libs: false
+  
+game:
+  runner: steam
+LUTRISCONF
+
+chown ludos:ludos /var/home/ludos/.config/lutris/steam.yml
+echo "Lutris configured with Steam integration"
+
+# Enable Lutris service
+systemctl enable ludos-lutris.service
+echo "Lutris service enabled (will start on boot)"
+
+# Note: Steam Big Picture is disabled in favor of Lutris
+# Lutris provides better compatibility with Tesla datacenter GPUs
+echo "Note: Lutris replaces Steam Big Picture due to GLX compatibility issues with Tesla GPUs"
 
 echo ""
 echo "=== LudOS Setup Complete ==="
@@ -276,12 +294,13 @@ echo "  ludos-display start       - Start the display"
 echo "  ludos-display logs        - View display logs"
 echo "  ludos-openbox verify      - Verify window manager is working"
 echo "  ludos-openbox status      - Check OpenBox status"
-echo "  ludos-steam status        - Check Steam status"
+echo "  ludos-lutris status       - Check Lutris game launcher status"
+echo "  ludos-lutris setup        - Run first-time Lutris setup"
 echo ""
 echo "For headless operation, connect via Moonlight client to this system's IP address"
 echo ""
 echo "Service startup order:"
 echo "  1. ludos-gamescope-display.service  (creates virtual displays)"
 echo "  2. ludos-openbox.service            (manages windows)"
-echo "  3. steam-bigpicture.service         (runs Steam)"
+echo "  3. ludos-lutris.service             (game launcher UI)"
 echo "  4. sunshine.service                 (streaming server)"
