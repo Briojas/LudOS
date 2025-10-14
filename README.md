@@ -7,10 +7,11 @@ LudOS is a specialized headless gaming virtual machine image built on Fedora 42 
 - **Headless Gaming**: No physical display required - games run on virtual displays
 - **NVIDIA Datacenter GPU Support**: Optimized for Tesla P4, K80, T4, V100, and other datacenter GPUs  
 - **NVIDIA GRID vGPU Compatible**: Full support for GRID licensing and mdev profiles
+- **Lutris Game Launcher**: Unified game library management with controller support
 - **Sunshine Streaming**: Built-in streaming server for Moonlight clients
 - **Gamescope Integration**: Virtual display compositor for seamless gaming
-- **OpenBox Window Manager**: Lightweight window management for proper Steam UI rendering
-- **Steam Ready**: Pre-configured Steam installation with Proton compatibility
+- **OpenBox Window Manager**: Lightweight window management for proper UI rendering
+- **Steam Integration**: Pre-configured Steam backend with Proton compatibility
 - **Container-Based**: Built using bootc for atomic updates and rollbacks
 
 ## Quick Start
@@ -128,11 +129,13 @@ LudOS uses a layered approach for headless gaming:
 ├─────────────────────────────────────┤
 │      Gamescope (Virtual Display)    │ ← Virtual display compositor  
 ├─────────────────────────────────────┤
-│         Xvfb (Virtual X Server)     │ ← X11 display server
+│       OpenBox Window Manager        │ ← Window management
+├─────────────────────────────────────┤
+│       Lutris Game Launcher          │ ← Unified game library
 ├─────────────────────────────────────┤
 │         Steam + Games               │ ← Gaming applications
 ├─────────────────────────────────────┤
-│       NVIDIA GRID Drivers           │ ← GPU virtualization & licensing
+│     NVIDIA Tesla/GRID Drivers       │ ← GPU virtualization & licensing
 ├─────────────────────────────────────┤
 │      Fedora 42 (bootc)             │ ← Base operating system
 └─────────────────────────────────────┘
@@ -217,21 +220,20 @@ For gaming with licensing support, use **GRID vGPU drivers**.
 
 ## Documentation
 
-### Guides
-- **[Command Reference](docs/command-reference.md)**: Complete guide to all ludos-* management commands
-- **[Deployment Guide](docs/deployment-guide.md)**: Complete Tesla driver deployment procedure (Secure Boot enabled)
-- **[Unsigned Deployment Guide](docs/unsigned-deployment.md)**: Quick deployment with Secure Boot disabled
-- **[Gamescope Display Guide](docs/gamescope-display-guide.md)**: Virtual display management and Sunshine integration
-- **[OpenBox Troubleshooting](docs/openbox-troubleshooting.md)**: Window manager troubleshooting for Steam and game visibility
-- **[Tesla Quick Reference](docs/tesla-quick-reference.md)**: Essential Tesla commands and troubleshooting
-- **[Build Instructions](docs/build-instructions.md)**: Detailed build and deployment guide
+📚 **[Documentation Index](docs/README.md)** - Complete documentation navigation
+
+### Quick Links
+- **[Lutris Quick Start](docs/guides/LUTRIS-QUICKSTART.md)**: Get started with the game launcher
+- **[Unsigned Deployment Guide](docs/guides/unsigned-deployment.md)**: Quick deployment reference
+- **[Command Reference](docs/reference/command-reference.md)**: All ludos-* commands
+- **[Build Instructions](docs/guides/build-instructions.md)**: Build and deployment
 
 ### Release Notes
-- **[v0.8.0](releases/v0.8.0.md)**: OpenBox window manager integration - fixes Steam UI visibility
-- **[v0.7.2](releases/v0.7.2.md)**: Tesla P4 NVENC, Gamescope, and device setup fixes
-- **[v0.7.0](releases/v0.7.0.md)**: Gamescope display improvements
+- **[v0.9.0](releases/v0.9.0.md)**: Lutris game launcher integration - replaces Steam Big Picture
+- **[v0.8.2](releases/v0.8.2.md)**: Bug fixes and stability improvements
+- **[v0.8.0](releases/v0.8.0.md)**: OpenBox window manager integration
+- **[v0.7.2](releases/v0.7.2.md)**: Tesla P4 NVENC and Gamescope fixes
 - **[v0.6.0](releases/v0.6.0.md)**: Initial stable release
-- **[Tesla Driver Fixes v0.4.0](releases/tesla-driver-fixes-v0.4.0.md)**: Tesla-specific driver patches
 
 ## Repository Structure
 

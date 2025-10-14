@@ -9,7 +9,7 @@ Quick reference for deploying LudOS with unsigned Tesla drivers when Secure Boot
 ```bash
 # 1. DISABLE SECURE BOOT IN BIOS/UEFI (CRITICAL!)
 
-# 2. Build LudOS (includes Steam, Gamescope, Xvfb, Sunshine)
+# 2. Build LudOS (includes Lutris, Steam backend, Gamescope, Sunshine)
 just clean && just build && just build-iso
 
 # 3. Deploy ISO to VM/bare metal
@@ -29,22 +29,24 @@ sudo /etc/ludos/ludos-setup.sh
 
 # 8. Verify everything is working
 nvidia-smi                              # Should show Tesla P4
-systemctl status ludos-gamescope        # Should show Steam running
-systemctl status sunshine               # Should show streaming ready
+systemctl status ludos-gamescope-display # Should show Gamescope running
+systemctl status ludos-lutris            # Should show Lutris running
+systemctl status sunshine                # Should show streaming ready
 
 # 9. Configure Sunshine and connect
 # Access https://<vm-ip>:47990 to set credentials
-# Connect via Moonlight client - you'll see Steam Big Picture!
+# Connect via Moonlight client - you'll see Lutris game launcher!
 
 # 10. (Optional) Remove VGA adapter from VM config
 #     Gamescope creates virtual display, VGA no longer needed
 ```
 
 **What's included in the build:**
-- ✅ Steam (gaming platform)
+- ✅ Lutris (game launcher UI)
+- ✅ Steam (gaming backend)
 - ✅ Gamescope (virtual display compositor for Tesla GPU)
-- ✅ Xvfb (virtual X server for gamescope to run on)
-- ✅ Sunshine (streaming server with KMS capture)
+- ✅ OpenBox (window manager)
+- ✅ Sunshine (streaming server)
 
 ## 🏗️ Architecture Overview
 
@@ -55,14 +57,14 @@ systemctl status sunshine               # Should show streaming ready
 │ LudOS VM (Headless - No Physical Monitor)   │
 │                                             │
 │  ┌──────────────────────────────────────┐  │
-│  │ Xvfb :99 (Virtual X Server)          │  │
-│  │  └─> Gamescope (Virtual Display)     │  │
-│  │       └─> Steam Big Picture          │  │
+│  │ Gamescope :0 (Headless Display)      │  │
+│  │  └─> OpenBox (Window Manager)        │  │
+│  │       └─> Lutris (Game Launcher)     │  │
 │  │            └─> Game                   │  │
 │  │                ↓ Rendered on          │  │
 │  │           Tesla P4 via Vulkan/OpenGL  │  │
 │  └──────────────────────────────────────┘  │
-│              ↓ Captured at DISPLAY=:99      │
+│              ↓ Captured at DISPLAY=:0       │
 │  ┌──────────────────────────────────────┐  │
 │  │ Sunshine Streaming Server            │  │
 │  │ - Captures gamescope display         │  │
@@ -217,7 +219,7 @@ ludos-display test
 
 ### 9. Verify OpenBox Window Manager
 
-OpenBox is required for Steam and game windows to display properly. The setup script configured it automatically:
+OpenBox is required for Lutris and game windows to display properly. The setup script configured it automatically:
 
 ```bash
 # Verify OpenBox is running
@@ -232,41 +234,36 @@ ludos-openbox verify
 # All checks passed! OpenBox is working correctly.
 ```
 
-**Why OpenBox?** Without a window manager, Steam and games cannot properly display their UI windows. OpenBox provides lightweight window management for the Gamescope headless environment.
+**Why OpenBox?** Without a window manager, Lutris and games cannot properly display their UI windows. OpenBox provides lightweight window management for the Gamescope headless environment.
 
 **Note**: The setup script automatically:
 - Fixed home directory permissions
 - Created OpenBox configuration from template
 - Enabled and started the OpenBox service
 
-### 10. Start Steam Big Picture
+### 10. Verify Lutris Game Launcher
 
 ```bash
-# Enable and start Steam Big Picture service
-sudo systemctl enable steam-bigpicture.service
-sudo systemctl start steam-bigpicture.service
+# Check Lutris is running
+systemctl status ludos-lutris.service
 
-# Check Steam is running
-systemctl status steam-bigpicture.service
-pgrep -af steam
-
-# Should see Steam process running on display :0
+# Should see Lutris process running on display :0
 
 # Verify with nvidia-smi
 nvidia-smi
-# Should show 3 processes:
+# Should show processes:
 # - gamescope (~68MB)
 # - sunshine (~106MB)
-# - steam (~100-200MB)
+# - lutris (~50-100MB)
 
 # Management commands:
-ludos-steam start      # Start Steam
-ludos-steam stop       # Stop Steam
-ludos-steam status     # Check status
-ludos-steam logs       # View logs
+ludos-lutris status    # Check status
+ludos-lutris restart   # Restart Lutris
+ludos-lutris logs      # View logs
+ludos-lutris setup     # Re-run setup
 ```
 
-### 10. Configure Sunshine
+### 11. Configure Sunshine
 
 ```bash
 # Access Sunshine web interface
