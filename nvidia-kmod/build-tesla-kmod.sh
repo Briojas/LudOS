@@ -8,6 +8,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LUDOS_ROOT="$(dirname "$SCRIPT_DIR")"
+# TESLA_VERSION is normally set by ludos-tesla-setup from the driver filename
+# Default is only used if this script is run directly (not recommended)
 TESLA_VERSION="${TESLA_VERSION:-580.82.07}"
 BUILD_DIR="${BUILD_DIR:-$SCRIPT_DIR/build}"
 SIGN_MODULES="${SIGN_MODULES:-0}"
@@ -54,12 +56,29 @@ if [ ${#ESSENTIAL_MISSING[@]} -gt 0 ]; then
 fi
 
 # Check for kernel development packages (these are the most likely to be missing)
+KERNEL_VERSION=$(uname -r)
 KERNEL_MISSING=()
+
+# Check if kernel-devel is installed
 if ! rpm -q kernel-devel >/dev/null 2>&1; then
     KERNEL_MISSING+=("kernel-devel")
 fi
+
+# Check if kernel-headers is installed
 if ! rpm -q kernel-headers >/dev/null 2>&1; then
     KERNEL_MISSING+=("kernel-headers")
+fi
+
+# More importantly, check if kernel sources exist for the RUNNING kernel
+KERNEL_SRC="/usr/src/kernels/$KERNEL_VERSION"
+if [ ! -d "$KERNEL_SRC" ]; then
+    echo "⚠️  WARNING: Kernel sources not found for running kernel $KERNEL_VERSION"
+    echo "   Expected at: $KERNEL_SRC"
+    if [ ${#KERNEL_MISSING[@]} -eq 0 ]; then
+        echo "   kernel-devel is installed, but for a different kernel version"
+        echo "   This usually means the kernel was recently updated"
+        KERNEL_MISSING+=("kernel-devel")
+    fi
 fi
 
 # Install only kernel packages if missing (avoid rpm-ostree conflicts)
@@ -68,9 +87,24 @@ if [ ${#KERNEL_MISSING[@]} -gt 0 ]; then
     echo "Installing via rpm-ostree..."
     rpm-ostree install --apply-live "${KERNEL_MISSING[@]}" || {
         echo "Failed to install kernel packages"
-        echo "You may need to reboot and try again"
+        echo ""
+        echo "TROUBLESHOOTING:"
+        echo "1. Reboot and try again (kernel sources may need restart)"
+        echo "2. Check available kernel-devel versions:"
+        echo "   rpm -qa | grep kernel-devel"
+        echo "3. Running kernel: $KERNEL_VERSION"
         exit 1
     }
+    
+    # Re-check after installation
+    if [ ! -d "$KERNEL_SRC" ]; then
+        echo "❌ ERROR: Kernel sources still not found after installation"
+        echo "   This usually means kernel-devel doesn't match running kernel"
+        echo ""
+        echo "SOLUTION: Reboot to ensure kernel and kernel-devel are in sync"
+        echo "Then retry: sudo ludos-tesla-setup install-tesla --secure-boot <driver.run>"
+        exit 1
+    fi
 fi
 
 # Check wget availability (informational only - spec file has curl fallback)
@@ -93,11 +127,38 @@ if [ "$SIGN_MODULES" = "1" ]; then
         rpm-ostree install --apply-live "${MISSING_SB[@]}" || {
             echo "Failed to install Secure Boot tools"; exit 1; }
     fi
-    # Ensure kernel-devel present (for sign-file)
-    if [ ! -x "/usr/src/kernels/$(uname -r)/scripts/sign-file" ]; then
-        echo "sign-file not found; installing kernel-devel live"
-        rpm-ostree install --apply-live kernel-devel || {
-            echo "Failed to install kernel-devel"; exit 1; }
+    # Verify sign-file is available (KERNEL_VERSION already set earlier)
+    SIGN_FILE_PATH="/usr/src/kernels/$KERNEL_VERSION/scripts/sign-file"
+    
+    if [ ! -x "$SIGN_FILE_PATH" ]; then
+        echo "sign-file not found at $SIGN_FILE_PATH"
+        echo "Installing kernel-devel package..."
+        
+        if rpm-ostree install --apply-live kernel-devel; then
+            echo "kernel-devel installed"
+            
+            # Verify sign-file now exists
+            if [ ! -x "$SIGN_FILE_PATH" ]; then
+                echo ""
+                echo "❌ ERROR: sign-file still not available after kernel-devel installation"
+                echo "This can happen on rpm-ostree systems where --apply-live doesn't"
+                echo "immediately populate /usr/src/kernels."
+                echo ""
+                echo "SOLUTION:"
+                echo "1. The kernel-devel package has been staged"
+                echo "2. Reboot to activate it: sudo systemctl reboot"
+                echo "3. After reboot, run this command again:"
+                echo "   sudo ludos-tesla-setup install-tesla --secure-boot <driver.run>"
+                echo ""
+                exit 1
+            fi
+            echo "✅ sign-file is now available at $SIGN_FILE_PATH"
+        else
+            echo "Failed to install kernel-devel"
+            exit 1
+        fi
+    else
+        echo "✅ sign-file found at $SIGN_FILE_PATH"
     fi
     # Create persistent MOK if missing
     MOK_NEWLY_CREATED=false
@@ -160,7 +221,13 @@ fi
 
 # Copy spec files and patches
 echo "Copying spec files and patches..."
-cp "$SCRIPT_DIR/nvidia-tesla-kmod.spec" "$BUILD_DIR/SPECS/"
+# Use simplified spec that doesn't require kmodtool metadata
+if [ -f "$SCRIPT_DIR/nvidia-tesla-kmod-simple.spec" ]; then
+    echo "Using simplified kmod spec (no kmodtool dependency)"
+    cp "$SCRIPT_DIR/nvidia-tesla-kmod-simple.spec" "$BUILD_DIR/SPECS/nvidia-tesla-kmod.spec"
+else
+    cp "$SCRIPT_DIR/nvidia-tesla-kmod.spec" "$BUILD_DIR/SPECS/"
+fi
 cp "$SCRIPT_DIR/nvidia-tesla-utils.spec" "$BUILD_DIR/SPECS/"
 cp "$SCRIPT_DIR/nvidia-kmodtool-excludekernel-filterfile" "$BUILD_DIR/SOURCES/"
 cp "$SCRIPT_DIR/make_modeset_default.patch" "$BUILD_DIR/SOURCES/"
@@ -224,8 +291,7 @@ fi
 echo "Creating Tesla driver tarball..."
 tar -cJf "nvidia-tesla-driver-$TESLA_VERSION.tar.xz" "nvidia-tesla-driver-$TESLA_VERSION/"
 
-# Get current kernel version
-KERNEL_VERSION=$(uname -r)
+# Derive kernel version components (KERNEL_VERSION already set earlier)
 KERNEL_RELEASE=$(echo "$KERNEL_VERSION" | cut -d'-' -f2-)
 KERNEL_BASE=$(echo "$KERNEL_VERSION" | cut -d'-' -f1)
 KERNEL_DIST=$(echo "$KERNEL_VERSION" | sed 's/.*\(\.[a-z][a-z0-9]*[0-9]\).*/\1/')
@@ -248,6 +314,7 @@ fi
 
 if rpmbuild --define "_topdir $BUILD_DIR" \
          --define "version $TESLA_VERSION" \
+         --define "kernels $KERNEL_VERSION" \
          --define "kernel_version $KERNEL_VERSION" \
          --define "kernel_release $KERNEL_RELEASE" \
          --define "kernel_base $KERNEL_BASE" \

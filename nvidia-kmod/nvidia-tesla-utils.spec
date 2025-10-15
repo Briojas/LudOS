@@ -1,5 +1,8 @@
 Name:           nvidia-tesla-utils
 Epoch:          1
+# NOTE: Version is a PLACEHOLDER - overridden at build time via:
+#       rpmbuild --define "version X.Y.Z" ...
+#       The actual version comes from the NVIDIA driver filename
 Version:        580.82.07
 Release:        8.ludos%{?dist}
 Summary:        NVIDIA Tesla datacenter driver user-space utilities
@@ -158,12 +161,16 @@ elif [ -f usr/lib64/xorg/modules/drivers/nvidia_drv.so ]; then
     install -m 0755 usr/lib64/xorg/modules/drivers/nvidia_drv.so %{buildroot}%{_libdir}/xorg/modules/drivers/
 fi
 
-# GLX extension for X.org
+# GLX extension for X.org (optional - not present in all Tesla drivers)
 if [ -f libglxserver_nvidia.so ]; then
     install -m 0755 libglxserver_nvidia.so.%{version} %{buildroot}%{_libdir}/xorg/modules/extensions/ 2>/dev/null || \
     install -m 0755 libglxserver_nvidia.so %{buildroot}%{_libdir}/xorg/modules/extensions/ 2>/dev/null || true
+    echo "GLX extension found and installed"
 elif [ -f usr/lib64/xorg/modules/extensions/libglxserver_nvidia.so.%{version} ]; then
     install -m 0755 usr/lib64/xorg/modules/extensions/libglxserver_nvidia.so.%{version} %{buildroot}%{_libdir}/xorg/modules/extensions/
+    echo "GLX extension found and installed"
+else
+    echo "Note: GLX extension not found (normal for datacenter drivers)"
 fi
 
 # Vulkan ICD
