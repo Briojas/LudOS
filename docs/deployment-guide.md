@@ -265,7 +265,7 @@ sudo /etc/ludos/ludos-setup.sh
    
    After the second reboot (post-MOK enrollment), the signed NVIDIA modules will load successfully.
 
-### Step 9: Verify Tesla Driver Installation
+### Step 9: Verify Driver Modules
 
 ```bash
 # Check Tesla driver status using LudOS management tool
@@ -274,39 +274,48 @@ ludos-tesla-setup status
 # This will show:
 # - Current driver type (Tesla vs Consumer)
 # - Tesla driver version
-# - GPU information
 # - Loaded kernel modules
 # - Installed packages
 
-# Verify NVIDIA SMI output
-nvidia-smi
+# Check kernel modules are loaded
+lsmod | grep nvidia
 
-# Should show Tesla P4 information:
-# +-----------------------------------------------------------------------------+
-# | NVIDIA-SMI 580.xx.xx    Driver Version: 580.xx.xx    CUDA Version: 12.x  |
-# |-------------------------------+----------------------+----------------------+
-# | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-# | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-# |===============================+======================+======================|
-# |   0  Tesla P4            Off  | 00000000:01:00.0 Off |                    0 |
-# | N/A   xx°C    P8    xx W /  75W|      0MiB /  7680MiB |      0%      Default |
-# +-------------------------------+----------------------+----------------------+
+# Should see:
+# - nvidia (Tesla kernel module)
+# - nvidia_drm
+# - nvidia_modeset
 
-# Check Tesla-specific driver features
-nvidia-smi --query-gpu=name,driver_version,pci.bus_id --format=csv,noheader
+# Note: nvidia-smi will NOT work yet (device nodes not created until Step 10)
 ```
 
-### Step 10: Run LudOS Setup Script
+### Step 10: Run LudOS Setup Script (REQUIRED)
 
 ```bash
 # Run post-installation setup
+# This enables device nodes, GPU persistence, and services
 sudo /etc/ludos/ludos-setup.sh
 
 # This will:
+# - Enable NVIDIA device nodes (/dev/nvidia*)
+# - Enable GPU persistence mode
 # - Configure Sunshine streaming server
 # - Set up Gamescope virtual display service
 # - Enable required systemd services
 # - Configure audio system for headless operation
+
+# Now verify nvidia-smi works
+nvidia-smi
+
+# Should show Tesla P4 information:
+# +-----------------------------------------------------------------------------+
+# | NVIDIA-SMI 580.xx.xx    Driver Version: 580.xx.xx    CUDA Version: 13.x  |
+# |-------------------------------+----------------------+----------------------+
+# | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+# | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+# |===============================+======================+======================|
+# |   0  Tesla P4            On   | 00000000:01:00.0 Off |                    0 |
+# | N/A   xx°C    P8    xx W /  75W|      0MiB /  7680MiB |      0%      Default |
+# +-------------------------------+----------------------+----------------------+
 ```
 
 ### Step 11: Configure NVIDIA GRID Licensing (Optional)

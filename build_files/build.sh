@@ -83,7 +83,9 @@ echo "Installing minimal graphics support for headless gaming..."
 dnf5 install -y \
     mesa-dri-drivers \
     mesa-vulkan-drivers \
-    xorg-x11-server-Xwayland
+    xorg-x11-server-Xwayland \
+    openbox \
+    xdpyinfo
 
 ### Enable RPM Fusion repositories (required for Steam, NVIDIA drivers, etc.)
 echo "Enabling RPM Fusion repositories..."
@@ -98,11 +100,17 @@ echo "Installing gaming components..."
 echo "Installing Gamescope virtual display manager..."
 dnf5 install -y gamescope
 
+# Install Vulkan tools for diagnostics
+echo "Installing Vulkan diagnostics tools..."
+dnf5 install -y vulkan-tools
+
 # Install Steam and gaming dependencies (requires RPM Fusion)
 echo "Installing Steam and gaming dependencies..."
 dnf5 install -y \
     steam \
-    gamemode
+    gamemode \
+    xorg-x11-server-Xvfb \
+    xdpyinfo
 
 ### LudOS NVIDIA Driver Strategy:
 # 1. Install minimal OpenGL infrastructure only (no NVIDIA drivers)
@@ -184,11 +192,38 @@ systemctl enable nvidia-gridd.service || echo "Warning: nvidia-gridd service not
 
 ### Copy LudOS setup files (directory already created above)
 cp /ctx/nvidia-gridd.conf.template /etc/ludos/
+cp /ctx/nvidia-persistence.service /etc/ludos/
 cp /ctx/ludos-setup.sh /etc/ludos/
 cp /ctx/nvidia-driver-install.sh /etc/ludos/
 cp /ctx/ludos-sunshine-setup /usr/local/bin/
 cp /ctx/ludos-tesla-setup /usr/local/bin/
 cp /ctx/ludos-tesla-rebuild-modules /usr/local/bin/
+cp /ctx/ludos-display /usr/local/bin/
+cp /ctx/ludos-steam /usr/local/bin/
+cp /ctx/ludos-openbox /usr/local/bin/
+cp /ctx/ludos-gamescope-display /usr/local/bin/
+cp /ctx/steam-wrapper.sh /usr/local/bin/
+cp /ctx/ludos-gamescope-display.service /etc/systemd/system/
+cp /ctx/ludos-openbox.service /etc/systemd/system/
+
+# Deploy Steam as a USER service to avoid SELinux issues with home directory access
+echo "Setting up Steam user service..."
+mkdir -p /etc/skel/.config/systemd/user/
+cp /ctx/steam-bigpicture.service /etc/skel/.config/systemd/user/
+# Also deploy to ludos user if exists (for upgrades)
+if id -u ludos &>/dev/null; then
+    mkdir -p /var/home/ludos/.config/systemd/user/
+    cp /ctx/steam-bigpicture.service /var/home/ludos/.config/systemd/user/
+    chown -R ludos:ludos /var/home/ludos/.config
+    # Enable lingering so user services run without active session
+    loginctl enable-linger ludos || echo "Warning: Could not enable lingering for ludos user"
+fi
+
+### Configure OpenBox for headless gaming
+echo "Configuring OpenBox window manager..."
+# Store OpenBox configuration as template (will be copied to user home during setup)
+cp /ctx/openbox-rc.xml /etc/ludos/openbox-rc.xml
+chmod 644 /etc/ludos/openbox-rc.xml
 
 # Copy nvidia-kmod directory if it exists
 if [ -d /ctx/nvidia-kmod ]; then
@@ -202,6 +237,11 @@ chmod +x /etc/ludos/nvidia-driver-install.sh
 chmod +x /usr/local/bin/ludos-sunshine-setup
 chmod +x /usr/local/bin/ludos-tesla-setup
 chmod +x /usr/local/bin/ludos-tesla-rebuild-modules
+chmod +x /usr/local/bin/ludos-display
+chmod +x /usr/local/bin/ludos-steam
+chmod +x /usr/local/bin/ludos-openbox
+chmod +x /usr/local/bin/ludos-gamescope-display
+chmod +x /usr/local/bin/steam-wrapper.sh
 
 # Make Tesla build script executable if it exists
 if [ -f /etc/ludos/nvidia-kmod/build-tesla-kmod.sh ]; then

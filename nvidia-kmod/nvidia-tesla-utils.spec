@@ -4,13 +4,14 @@ Epoch:          1
 #       rpmbuild --define "version X.Y.Z" ...
 #       The actual version comes from the NVIDIA driver filename
 Version:        580.82.07
-Release:        14.ludos%{?dist}
+Release:        8.ludos%{?dist}
 Summary:        NVIDIA Tesla datacenter driver user-space utilities
 
 License:        Redistributable, no modification permitted
 URL:            https://www.nvidia.com/
 Source0:        nvidia-tesla-driver-%{version}.tar.xz
 Source1:        nvidia-device-setup.service
+Source2:        nvidia-device-setup.path
 
 %global _missing_build_ids_terminate_build 0
 %global debug_package %{nil}
@@ -80,8 +81,9 @@ elif [ -f usr/bin/nvidia-modprobe ]; then
     install -m 0755 usr/bin/nvidia-modprobe %{buildroot}%{_bindir}/
 fi
 
-# Install systemd service to create device nodes at boot
+# Install systemd service and path unit to create device nodes at boot
 install -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/nvidia-device-setup.service
+install -m 0644 %{SOURCE2} %{buildroot}%{_unitdir}/nvidia-device-setup.path
 
 # Function to find and install libraries from various possible locations
 install_lib() {
@@ -218,10 +220,15 @@ done
 
 %post
 %{_sbindir}/ldconfig
-%systemd_post nvidia-device-setup.service
+%systemd_post nvidia-device-setup.service nvidia-device-setup.path
+# Explicitly enable the path unit (bootc/rpm-ostree may not honor presets)
+if [ $1 -eq 1 ]; then
+    # First install - enable path unit to auto-trigger service
+    systemctl enable nvidia-device-setup.path >/dev/null 2>&1 || :
+fi
 
 %preun
-%systemd_preun nvidia-device-setup.service
+%systemd_preun nvidia-device-setup.service nvidia-device-setup.path
 
 %postun
 %{_sbindir}/ldconfig
@@ -248,63 +255,39 @@ done
 %{_libdir}/libGLESv1_CM_nvidia.so*
 %{_libdir}/libGLESv2_nvidia.so*
 
-# VDPAU
+# VDPAU (optional for Tesla)
+%dir %{_libdir}/vdpau
 %{_libdir}/vdpau/libvdpau_nvidia.so*
 
-# X.org driver (GLX extension may not be present in datacenter drivers)
+# X.org driver (present in Tesla drivers for compatibility)
 %{_libdir}/xorg/modules/drivers/nvidia_drv.so
 
-# Vulkan
+# Vulkan (required for Gamescope)
 %{_datadir}/vulkan/icd.d/nvidia_icd.json
 %{_datadir}/vulkan/implicit_layer.d/nvidia_layers.json
 
-# EGL
+# EGL (required for Gamescope)
 %{_datadir}/glvnd/egl_vendor.d/10_nvidia.json
 %{_datadir}/egl/egl_external_platform.d/10_nvidia_wayland.json
 
-# GBM
+# GBM (required for Gamescope)
 %{_libdir}/libnvidia-egl-gbm.so*
-%{_libdir}/gbm/
+%dir %{_libdir}/gbm
 
 # OpenCL
 %{_sysconfdir}/OpenCL/vendors/nvidia.icd
 
 # Systemd
 %{_unitdir}/nvidia-device-setup.service
+%{_unitdir}/nvidia-device-setup.path
 
 %changelog
-* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-14.ludos
-- Bump Release to match nvidia-tesla-kmod.spec (kmodtool --repo requirement fix)
-- Version bump per NVIDIA driver workflow policy
-
-* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-13.ludos
-- Bump Release to match nvidia-tesla-kmod.spec (kmodtool --repo fix)
-- Version bump per NVIDIA driver workflow policy
-
-* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-12.ludos
-- Bump Release to match nvidia-tesla-kmod.spec (kmodtool fix release)
-- Align with explicit kernel version build approach
-- Version bump per NVIDIA driver workflow policy
-
-* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-11.ludos
-- Bump Release to match nvidia-tesla-kmod.spec (kmod fix release)
-- Align with akmod→kmod transition for bootc/rpm-ostree compatibility
-- Version bump per NVIDIA driver workflow policy
-
-* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-10.ludos
-- Bump Release to match nvidia-tesla-kmod.spec for version consistency
-- Version bump per NVIDIA driver workflow policy
-
-* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-9.ludos
-- Bump Release to match nvidia-tesla-kmod.spec for version consistency
-- Align with module signing enhancements
-- Version bump per NVIDIA driver workflow policy
-
-* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-8.ludos
-- Make GLX extension optional (not present in datacenter Tesla drivers)
-- Fix RPM build failure when libglxserver_nvidia.so doesn't exist
-- Gracefully handle missing optional libraries
-- Version bump per NVIDIA driver workflow policy
+* Sat Oct  4 2025 LudOS Project <ludos@example.com> - 1:580.82.07-8.ludos
+- Add systemd path unit to reliably trigger device setup when module loads
+- Fix nvidia-device-setup.service skipping at boot due to module load timing
+- Add mknod fallback for /dev/nvidiactl creation (nvidia-modprobe returns success but doesn't create nodes)
+- Explicitly enable nvidia-device-setup.path in %post for bootc/rpm-ostree compatibility
+- Resolve nvidia-smi communication failures after boot
 
 * Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-7.ludos
 - Add complete graphics library support (OpenGL, Vulkan, EGL, X.org)

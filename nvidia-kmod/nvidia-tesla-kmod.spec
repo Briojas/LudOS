@@ -17,7 +17,7 @@ Epoch:         1
 #       The actual version comes from the NVIDIA driver filename
 Version:       580.82.07
 # Taken over by kmodtool
-Release:       14.ludos%{?dist}
+Release:       8.ludos%{?dist}
 Summary:       NVIDIA Tesla datacenter driver kernel module
 License:       Redistributable, no modification permitted
 URL:           https://www.nvidia.com/
@@ -260,45 +260,9 @@ echo ""
 %{?akmod_install}
 
 %changelog
-* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-14.ludos
-- Fix kmodtool --repo requirement (required parameter, use standard rpmfusion name)
-- Remove debug kmodtool print in %prep that caused build failure
-- Explicit --for-kernels from build script overrides repo metadata lookup
-- Version bump per NVIDIA driver workflow policy
-
-* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-13.ludos
-- Remove --repo parameter from kmodtool invocations (fixes buildsys metadata error)
-- Allow kmodtool to work with explicit --for-kernels parameter only
-- Version bump per NVIDIA driver workflow policy
-
-* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-12.ludos
-- Fix kmodtool buildsys-build-ludos-kerneldevpkgs error
-- Remove buildforkernels macro, use explicit kernel version from build script
-- Proper kmod build for bootc/rpm-ostree immutable systems
-- Version bump per NVIDIA driver workflow policy
-
-* Thu Oct  2 2025 LudOS Project <ludos@example.com> - 1:580.82.07-11.ludos
-- CRITICAL FIX: Change from akmod to kmod for bootc/rpm-ostree systems
-- Enhanced module signing with comprehensive error checking and verification
-- Fix empty kernel_versions causing unsigned modules
-- Add detailed signing output for troubleshooting
-- Version bump per NVIDIA driver workflow policy
-
-* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-10.ludos
-- Bump Release to align with build script improvements
-- Version bump per NVIDIA driver workflow policy
-
-* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-9.ludos
-- Enhanced module signing with verbose logging and error checking
-- Add explicit validation of sign-file, MOK key, and certificate
-- Fix Secure Boot "Key was rejected by service" error
-- Ensure signing actually runs during RPM build
-- Version bump per NVIDIA driver workflow policy
-
-* Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-8.ludos
+* Sat Oct  4 2025 LudOS Project <ludos@example.com> - 1:580.82.07-8.ludos
 - Bump Release to match nvidia-tesla-utils.spec for version consistency
-- Align with optional GLX extension handling in utils package
-- Version bump per NVIDIA driver workflow policy
+- Align with device node creation improvements in utils package
 
 * Wed Oct  1 2025 LudOS Project <ludos@example.com> - 1:580.82.07-7.ludos
 - Bump Release to match nvidia-tesla-utils.spec for version consistency

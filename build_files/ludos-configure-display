@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# LudOS Display Configuration Helper
+# Configures Xwayland display dimensions for proper Steam resolution detection
+
+set -euo pipefail
+
+DISPLAY="${1:-:0}"
+WIDTH="${2:-1920}"
+HEIGHT="${3:-1080}"
+REFRESH="${4:-60}"
+
+echo "[LudOS] Configuring display $DISPLAY dimensions: ${WIDTH}x${HEIGHT}@${REFRESH}Hz"
+
+# Wait for display to be available
+for i in {1..30}; do
+    if DISPLAY="$DISPLAY" xdpyinfo >/dev/null 2>&1; then
+        echo "[LudOS] Display $DISPLAY is ready"
+        break
+    fi
+    sleep 0.5
+done
+
+# Try to configure with xrandr (may not work in rootless mode, but worth trying)
+if command -v xrandr >/dev/null 2>&1; then
+    echo "[LudOS] Attempting xrandr configuration..."
+    
+    # Get the output name
+    OUTPUT=$(DISPLAY="$DISPLAY" xrandr 2>/dev/null | grep -oP '^[A-Z0-9-]+(?= connected)' | head -1 || echo "")
+    
+    if [ -n "$OUTPUT" ]; then
+        echo "[LudOS] Found output: $OUTPUT"
+        # Try to set mode (may fail in rootless, that's OK)
+        DISPLAY="$DISPLAY" xrandr --output "$OUTPUT" --mode "${WIDTH}x${HEIGHT}" --rate "$REFRESH" 2>/dev/null || \
+            echo "[LudOS] xrandr mode setting not supported (expected in rootless Xwayland)"
+    else
+        echo "[LudOS] No xrandr outputs found (expected in rootless Xwayland)"
+    fi
+fi
+
+# Verify display info
+echo "[LudOS] Display information:"
+DISPLAY="$DISPLAY" xdpyinfo | grep -E "dimensions|resolution" || true
+
+echo "[LudOS] Display configuration complete"

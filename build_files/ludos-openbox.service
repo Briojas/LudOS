@@ -1,0 +1,60 @@
+[Unit]
+Description=OpenBox Window Manager for Gamescope
+Documentation=man:openbox(1)
+After=ludos-gamescope-display.service user@1000.service
+Wants=ludos-gamescope-display.service user@1000.service
+Requires=ludos-gamescope-display.service
+# Ensure we start before applications try to create windows
+Before=steam-bigpicture.service
+
+[Service]
+Type=simple
+User=ludos
+Group=ludos
+
+# Use Gamescope's primary XWayland display
+Environment=DISPLAY=:0
+Environment=HOME=/var/home/ludos
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+
+# NVIDIA environment (if available)
+Environment=__GLX_VENDOR_LIBRARY_NAME=nvidia
+Environment=__NV_PRIME_RENDER_OFFLOAD=1
+Environment=LD_LIBRARY_PATH=/usr/lib64:/usr/local/lib64
+
+# Wait for Gamescope display to be ready and verify it's accessible
+ExecStartPre=/bin/sleep 5
+ExecStartPre=/bin/sh -c 'i=0; while [ $i -lt 30 ]; do DISPLAY=:0 xdpyinfo >/dev/null 2>&1 && exit 0; sleep 0.5; i=$((i+1)); done; exit 1'
+
+# Note: OpenBox config must be created manually during initial setup
+# Run: mkdir -p ~/.config/openbox && cp /etc/ludos/openbox-rc.xml ~/.config/openbox/rc.xml
+# This is required due to bootc home directory initialization timing
+
+# Start OpenBox window manager
+# --replace flag replaces any existing window manager (e.g., steamcompmgr)
+# --startup flag runs the specified command instead of openbox-session
+ExecStart=/usr/bin/openbox --replace --config-file /var/home/ludos/.config/openbox/rc.xml
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# Grant GPU access for proper rendering
+SupplementaryGroups=video render input
+
+# Allow access to DRI devices (GPU)
+DeviceAllow=/dev/dri/card0 rw
+DeviceAllow=/dev/dri/card1 rw
+DeviceAllow=/dev/dri/renderD128 rw
+DeviceAllow=/dev/dri/renderD129 rw
+
+# Allow access to NVIDIA devices
+DeviceAllow=/dev/nvidia0 rw
+DeviceAllow=/dev/nvidia1 rw
+DeviceAllow=/dev/nvidiactl rw
+DeviceAllow=/dev/nvidia-modeset rw
+DeviceAllow=/dev/nvidia-uvm rw
+DeviceAllow=/dev/nvidia-uvm-tools rw
+
+[Install]
+WantedBy=graphical.target

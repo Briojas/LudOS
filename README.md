@@ -9,6 +9,7 @@ LudOS is a specialized headless gaming virtual machine image built on Fedora 42 
 - **NVIDIA GRID vGPU Compatible**: Full support for GRID licensing and mdev profiles
 - **Sunshine Streaming**: Built-in streaming server for Moonlight clients
 - **Gamescope Integration**: Virtual display compositor for seamless gaming
+- **OpenBox Window Manager**: Lightweight window management for proper Steam UI rendering
 - **Steam Ready**: Pre-configured Steam installation with Proton compatibility
 - **Container-Based**: Built using bootc for atomic updates and rollbacks
 
@@ -76,12 +77,22 @@ For enterprise Tesla GPU support:
    - Download: `NVIDIA-Linux-x86_64-VERSION.run`
 
 2. **Install Tesla drivers**:
+   
+   **With Secure Boot enabled:**
    ```bash
    # Transfer driver file to LudOS VM
    scp NVIDIA-Linux-x86_64-580.82.07.run ludos@<vm-ip>:~/
    
-   # Install Tesla drivers
-   sudo ludos-tesla-setup install ~/NVIDIA-Linux-x86_64-580.82.07.run
+   # Install Tesla drivers with signed modules
+   sudo ludos-tesla-setup install-tesla --secure-boot ~/NVIDIA-Linux-x86_64-580.82.07.run
+   
+   # Follow MOK enrollment prompts, then reboot
+   ```
+   
+   **With Secure Boot disabled:**
+   ```bash
+   # Install Tesla drivers (unsigned)
+   sudo ludos-tesla-setup install-tesla ~/NVIDIA-Linux-x86_64-580.82.07.run
    
    # Reboot to activate
    sudo systemctl reboot
@@ -101,7 +112,7 @@ For enterprise Tesla GPU support:
    - Add PC using LudOS VM IP address
    - Stream games remotely
 
-📖 **For detailed Tesla deployment instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**
+📖 **For detailed Tesla deployment instructions, see [Deployment Guide](docs/deployment-guide.md)**
 
 ## Architecture
 
@@ -117,6 +128,8 @@ LudOS uses a layered approach for headless gaming:
 ├─────────────────────────────────────┤
 │      Gamescope (Virtual Display)    │ ← Virtual display compositor  
 ├─────────────────────────────────────┤
+│         Xvfb (Virtual X Server)     │ ← X11 display server
+├─────────────────────────────────────┤
 │         Steam + Games               │ ← Gaming applications
 ├─────────────────────────────────────┤
 │       NVIDIA GRID Drivers           │ ← GPU virtualization & licensing
@@ -124,6 +137,53 @@ LudOS uses a layered approach for headless gaming:
 │      Fedora 42 (bootc)             │ ← Base operating system
 └─────────────────────────────────────┘
 ```
+
+## Display Management
+
+LudOS includes a custom display management system for headless operation:
+
+### Quick Display Commands
+
+```bash
+# Start virtual display
+sudo ludos-display start
+
+# Check display status
+ludos-display status
+
+# View display logs
+ludos-display logs
+
+# Change display backend
+sudo ludos-display set-backend headless    # Experimental, lower overhead
+sudo ludos-display set-backend drm         # Direct GPU rendering
+sudo ludos-display set-backend xvfb        # Default, most compatible
+
+# Change resolution
+sudo ludos-display set-resolution 2560x1440
+sudo ludos-display set-resolution 3840x2160  # 4K
+```
+
+### Display Backends
+
+LudOS supports three display backends:
+
+1. **xvfb** (Default) - Xvfb + Gamescope nested
+   - ✅ Most compatible and stable
+   - ✅ Works with all GPU types
+   - ✅ Best for initial setup
+   
+2. **headless** (Experimental) - Gamescope headless mode
+   - ✅ Lower overhead
+   - ❌ May not work with all games
+   - ⚠️ Experimental feature
+   
+3. **drm** (Advanced) - Direct DRM/KMS rendering
+   - ✅ Best performance
+   - ✅ Lowest latency
+   - ❌ Requires proper permissions
+
+📖 **For detailed display configuration, see [Gamescope Display Guide](docs/gamescope-display-guide.md)**
 
 ## NVIDIA Driver Support
 
@@ -157,11 +217,21 @@ For gaming with licensing support, use **GRID vGPU drivers**.
 
 ## Documentation
 
-- **[Deployment Guide](DEPLOYMENT_GUIDE.md)**: Complete Tesla driver deployment procedure
-- **[Tesla Quick Reference](TESLA_QUICK_REFERENCE.md)**: Essential Tesla commands and troubleshooting
-- **[Build Instructions](BUILD_INSTRUCTIONS.md)**: Detailed build and deployment guide
-- **[NVIDIA Setup Guide](build_files/nvidia-driver-install.sh)**: Driver installation procedures
-- **[Troubleshooting](BUILD_INSTRUCTIONS.md#troubleshooting)**: Common issues and solutions
+### Guides
+- **[Command Reference](docs/command-reference.md)**: Complete guide to all ludos-* management commands
+- **[Deployment Guide](docs/deployment-guide.md)**: Complete Tesla driver deployment procedure (Secure Boot enabled)
+- **[Unsigned Deployment Guide](docs/unsigned-deployment.md)**: Quick deployment with Secure Boot disabled
+- **[Gamescope Display Guide](docs/gamescope-display-guide.md)**: Virtual display management and Sunshine integration
+- **[OpenBox Troubleshooting](docs/openbox-troubleshooting.md)**: Window manager troubleshooting for Steam and game visibility
+- **[Tesla Quick Reference](docs/tesla-quick-reference.md)**: Essential Tesla commands and troubleshooting
+- **[Build Instructions](docs/build-instructions.md)**: Detailed build and deployment guide
+
+### Release Notes
+- **[v0.8.0](releases/v0.8.0.md)**: OpenBox window manager integration - fixes Steam UI visibility
+- **[v0.7.2](releases/v0.7.2.md)**: Tesla P4 NVENC, Gamescope, and device setup fixes
+- **[v0.7.0](releases/v0.7.0.md)**: Gamescope display improvements
+- **[v0.6.0](releases/v0.6.0.md)**: Initial stable release
+- **[Tesla Driver Fixes v0.4.0](releases/tesla-driver-fixes-v0.4.0.md)**: Tesla-specific driver patches
 
 ## Repository Structure
 
